@@ -1,17 +1,16 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import "./globals.css";
+import "../globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
-import RouteAwareNavigation from '@/components/RouteAwareNavigation';
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Custom Booking Flow",
-  description: "A self-hosted booking system",
+  title: "Booking Widget",
+  description: "Embeddable booking widget",
 };
 
-export default function RootLayout({
+export default function EmbedLayout({
   children,
 }: {
   children: React.ReactNode
@@ -20,10 +19,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <AuthProvider>
-          <RouteAwareNavigation />
           <main>{children}</main>
         </AuthProvider>
       </body>
     </html>
   );
-}
+} 
