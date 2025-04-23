@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   description: "Slot Fox helps you manage appointments, reduce no-shows, and provide a seamless booking experience for your clients.",
 };
 
+
 export default function RootLayout({
   children,
 }: {
@@ -21,7 +22,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           <RouteAwareNavigation />
-          <main>{children}</main>
+          <main className="">{children}</main>
         </AuthProvider>
       </body>
     </html>

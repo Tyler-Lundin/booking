@@ -1,16 +1,18 @@
 import Link from 'next/link'
-import Logo from '@/components/Logo'
+import { LogoFull, LogoShort, FoxHead } from '@/components/Logo'
+import { Background } from '@/components/Background'
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
+    <div className="min-h-screen">
+      <Background />
       {/* Navigation */}
-      <nav className="border-b border-gray-200 bg-white">
+      <nav className="border-b border-gray-200 bg-white/90 backdrop-blur-sm shadow-sm fixed top-0 left-0 w-full z-50">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 justify-between">
             <div className="flex">
               <div className="flex flex-shrink-0 items-center">
-                <Logo size="lg" />
+                <LogoFull />
               </div>
             </div>
             <div className="flex items-center">
@@ -24,9 +26,12 @@ export default function Home() {
           </div>
         </div>
       </nav>
-
+      <div className="py-16" />
       {/* Hero Section */}
       <div className="relative isolate px-6 pt-14 lg:px-8">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full flex justify-center items-center">
+          <FoxHead size="w-48 h-48" />
+        </div>
         <div className="mx-auto max-w-2xl py-32 sm:py-48 lg:py-56">
           <div className="text-center">
             <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl">
@@ -84,7 +89,7 @@ export default function Home() {
       <footer className="bg-white">
         <div className="mx-auto max-w-7xl px-6 py-12 md:flex md:items-center md:justify-between lg:px-8">
           <div className="flex justify-center space-x-6 md:order-2">
-            <Logo size="sm" />
+            <FoxHead size="w-8 h-8" />
           </div>
           <div className="mt-8 md:order-1 md:mt-0">
             <p className="text-center text-xs leading-5 text-gray-500">
