@@ -6,6 +6,7 @@ import { DateTime } from 'luxon'
 import { useAuth } from '@/contexts/AuthContext'
 import Cookies from 'js-cookie'
 import SocialLogin from './SocialLogin'
+import { getFingerprint } from '@/lib/fingerprint'
 
 interface BookingFormProps {
   selectedDate: string
@@ -72,6 +73,23 @@ export default function BookingForm({
     setShowConfirmation(false)
 
     try {
+      // Get fingerprint for unauthenticated users
+      const fingerprint = user ? null : await getFingerprint()
+
+      // For unauthenticated users, check for recent bookings with the same fingerprint
+      if (!user && fingerprint) {
+        const { data: recentBookings, error: recentBookingsError } = await supabase
+          .from('bookings')
+          .select('*')
+          .eq('fingerprint', fingerprint)
+          .gte('created_at', DateTime.now().minus({ hours: 24 }).toISO())
+
+        if (recentBookingsError) throw recentBookingsError
+        if (recentBookings && recentBookings.length > 0) {
+          throw new Error('You have already made a booking in the last 24 hours. Please wait before making another booking.')
+        }
+      }
+
       // Check if the slot is still available
       const { data: availability, error: availabilityError } = await supabase
         .from('availability')
@@ -112,6 +130,7 @@ export default function BookingForm({
         phone_number: formData.phone,
         embed_id: embedId,
         ...(user ? { user_id: user.id } : {}), // Only include user_id if user is authenticated
+        ...(fingerprint ? { fingerprint } : {}), // Include fingerprint for unauthenticated users
       }
 
       const { data: booking, error: bookingError } = await supabase
@@ -220,6 +239,20 @@ export default function BookingForm({
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Breadcrumb section */}
+        <div className="bg-gray-50 p-4 rounded-lg mb-6">
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <span className="font-medium">Selected Appointment:</span>
+            <span className="text-gray-900">
+              {DateTime.fromISO(selectedDate).toLocaleString(DateTime.DATE_MED)}
+            </span>
+            <span className="text-gray-400">•</span>
+            <span className="text-gray-900">
+              {DateTime.fromFormat(selectedTime, 'HH:mm:ss').toFormat('h:mm a')}
+            </span>
+          </div>
+        </div>
+
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-gray-700">
             Name *

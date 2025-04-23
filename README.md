@@ -1,118 +1,87 @@
-# Custom Booking Flow
+# Slot Fox - Smart Scheduling Platform
 
-A self-hosted booking system built with Supabase and Next.js, designed for personal or freelance developer portfolios. This system provides a clean, minimalist interface for clients to book time while giving you full control over your availability and data.
+Slot Fox is a modern, full-featured appointment scheduling platform designed to help businesses manage their bookings efficiently. Built with Next.js, TypeScript, and Supabase, it provides a seamless experience for both service providers and their clients.
 
 ## Features
 
-- Clean, minimalist booking interface
-- Timezone-aware scheduling
-- Admin dashboard for managing bookings and availability
-- Email confirmations and reminders
-- Full control over your data and scheduling logic
-- Dark mode support
-- Responsive design
+### For Service Providers
+- **Admin Dashboard**: Comprehensive overview of bookings, availability, and business metrics
+- **Availability Management**: 
+  - Set working hours and days
+  - Configure buffer times between appointments
+  - Manage multiple time slots efficiently
+- **Booking Management**:
+  - View and manage all appointments
+  - Handle booking statuses (confirmed, cancelled, etc.)
+  - Track client information
+- **Embeddable Booking Widget**: Easy integration into existing websites
+- **User Management**: Secure authentication and role-based access control
 
-## Tech Stack
+### For Clients
+- **Easy Booking Process**: Simple and intuitive interface for scheduling appointments
+- **Real-time Availability**: See up-to-date available slots
+- **Booking History**: Access past and upcoming appointments
+- **Email Notifications**: Receive booking confirmations and reminders
 
-- Next.js 15 (App Router)
-- Supabase (Postgres + Auth)
-- TypeScript
-- Tailwind CSS
-- Luxon (for timezone handling)
+## Technical Stack
+
+- **Frontend**: Next.js 15 with TypeScript
+- **Styling**: Tailwind CSS
+- **Database**: Supabase (PostgreSQL)
+- **Authentication**: Supabase Auth
+- **Icons**: Heroicons
+- **Deployment**: Vercel (recommended)
+
+## Project Structure
+
+```
+src/
+├── app/                    # Next.js app router pages
+│   ├── admin/             # Admin dashboard and management
+│   │   ├── availability/  # Availability management
+│   │   ├── bookings/      # Booking management
+│   │   ├── config/        # Business configuration
+│   │   └── embeds/        # Embeddable booking widget
+│   ├── auth/              # Authentication pages
+│   ├── bookings/          # Client booking pages
+│   ├── dashboard/         # User dashboard
+│   └── [embed_id]/        # Embedded booking pages
+├── components/            # Reusable components
+│   ├── admin/            # Admin-specific components
+│   └── shared/           # Shared components
+├── contexts/             # React contexts
+├── lib/                  # Utility functions and configurations
+└── types/                # TypeScript type definitions
+```
 
 ## Getting Started
-
-### Prerequisites
-
-- Node.js 18+
-- Supabase account
-- npm or yarn
-
-### Environment Setup
 
 1. Clone the repository
 2. Install dependencies:
    ```bash
    npm install
    ```
-3. Create a `.env.local` file with your Supabase credentials:
+3. Set up environment variables:
+   ```bash
+   cp .env.example .env.local
    ```
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   ```
-
-### Database Setup
-
-1. Create the following tables in your Supabase database:
-
-   ```sql
-   -- Users table
-   create table users (
-     id uuid default uuid_generate_v4() primary key,
-     email text unique not null,
-     role text check (role in ('admin', 'client')) not null,
-     created_at timestamp with time zone default timezone('utc'::text, now()) not null
-   );
-
-   -- Availability table
-   create table availability (
-     id uuid default uuid_generate_v4() primary key,
-     day_of_week integer check (day_of_week between 0 and 6) not null,
-     start_time time not null,
-     end_time time not null,
-     buffer_minutes integer not null
-   );
-
-   -- Bookings table
-   create table bookings (
-     id uuid default uuid_generate_v4() primary key,
-     user_id uuid references users(id) not null,
-     date date not null,
-     start_time time not null,
-     end_time time not null,
-     status text check (status in ('pending', 'confirmed', 'canceled')) not null,
-     notes text,
-     created_at timestamp with time zone default timezone('utc'::text, now()) not null
-   );
+4. Configure your Supabase project and update the environment variables
+5. Run the development server:
+   ```bash
+   npm run dev
    ```
 
-2. Set up Row Level Security (RLS) policies in Supabase for each table.
+## Environment Variables
 
-### Development
+Required environment variables:
+- `NEXT_PUBLIC_SUPABASE_URL`: Your Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your Supabase anonymous key
+- `NEXT_PUBLIC_APP_URL`: Your application URL (for email links)
 
-Run the development server:
+## Contributing
 
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) to view the booking interface.
-
-## Project Structure
-
-```
-src/
-├── app/              # Next.js app router pages
-├── components/       # React components
-├── lib/             # Utility functions and configurations
-├── types/           # TypeScript type definitions
-└── utils/           # Helper functions
-```
-
-## Customization
-
-### Styling
-
-The project uses Tailwind CSS for styling. You can customize the look and feel by modifying the `tailwind.config.js` file.
-
-### Timezone Handling
-
-All timezone operations are handled using Luxon. The system automatically detects the user's timezone and displays times accordingly.
-
-### Email Notifications
-
-Email notifications are handled through Supabase Edge Functions. You can customize the email templates and logic in the `supabase/functions` directory.
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-MIT
+This project is licensed under the MIT License - see the LICENSE file for details.

@@ -55,7 +55,7 @@ export interface Database {
       bookings: {
         Row: {
           id: string
-          user_id: string
+          user_id: string | null
           date: string
           start_time: string
           end_time: string
@@ -64,12 +64,13 @@ export interface Database {
           name: string | null
           email: string | null
           phone_number: string | null
+          fingerprint: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
-          user_id: string
+          user_id?: string | null
           date: string
           start_time: string
           end_time: string
@@ -78,12 +79,13 @@ export interface Database {
           name?: string | null
           email?: string | null
           phone_number?: string | null
+          fingerprint?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
-          user_id?: string
+          user_id?: string | null
           date?: string
           start_time?: string
           end_time?: string
@@ -92,6 +94,7 @@ export interface Database {
           name?: string | null
           email?: string | null
           phone_number?: string | null
+          fingerprint?: string | null
           created_at?: string
           updated_at?: string
         }

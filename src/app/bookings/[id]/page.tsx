@@ -49,10 +49,22 @@ export default function BookingDetailsPage({ params }: PageProps) {
           return
         }
 
-        // If the booking has a user_id and the current user doesn't match, show error
+        // Allow access if:
+        // 1. The booking has no user_id (unauthenticated booking)
+        // 2. The current user matches the booking's user_id
+        // 3. The current user is an admin
         if (data.user_id && user?.id !== data.user_id) {
-          setError('You do not have permission to view this booking')
-          return
+          // Check if user is admin
+          const { data: userData } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', user?.id)
+            .single()
+
+          if (userData?.role !== 'admin') {
+            setError('You do not have permission to view this booking')
+            return
+          }
         }
 
         setBooking(data)

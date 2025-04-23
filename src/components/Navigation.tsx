@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import Logo from './Logo';
 
 export default function Navigation() {
   const pathname = usePathname();
@@ -20,8 +21,8 @@ export default function Navigation() {
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
-              <Link href="/" className="text-xl font-bold text-indigo-600">
-                Booking Flow
+              <Link href="/">
+                <Logo />
               </Link>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">

@@ -7,8 +7,8 @@ import RouteAwareNavigation from '@/components/RouteAwareNavigation';
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Custom Booking Flow",
-  description: "A self-hosted booking system",
+  title: "Slot Fox - Smart Scheduling for Your Business",
+  description: "Slot Fox helps you manage appointments, reduce no-shows, and provide a seamless booking experience for your clients.",
 };
 
 export default function RootLayout({
