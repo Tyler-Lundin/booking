@@ -1,4 +1,4 @@
-# Slot Fox Development Roadmap
+# Booking Development Roadmap
 
 A focused roadmap for building a multi-client booking platform using static config and Supabase. Designed to be modular, secure, and extensible — without full SaaS overhead (yet).
 

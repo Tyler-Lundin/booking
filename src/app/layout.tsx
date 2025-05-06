@@ -1,16 +1,15 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "@/contexts/AuthContext";
 import RouteAwareNavigation from '@/components/RouteAwareNavigation';
+import { ThemeProvider } from 'next-themes';
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Slot Fox - Smart Scheduling for Your Business",
-  description: "Slot Fox helps you manage appointments, reduce no-shows, and provide a seamless booking experience for your clients.",
+  title: "Booking",
+  description: "Booking",
 };
-
 
 export default function RootLayout({
   children,
@@ -18,12 +17,12 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <AuthProvider>
+        <ThemeProvider>
           <RouteAwareNavigation />
-          <main className="">{children}</main>
-        </AuthProvider>
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

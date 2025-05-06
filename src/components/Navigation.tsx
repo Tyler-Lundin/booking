@@ -2,12 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
 import { LogoFull, LogoShort, FoxHead } from './Logo';
+import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import DarkModeToggle from './DarkModeToggle';
 
-export default function Navigation() {
+export default async function Navigation() {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const supabase = createBrowserSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard' },
@@ -32,7 +34,7 @@ export default function Navigation() {
                   href={item.href}
                   className={`${
                     pathname === item.href
-                      ? 'border-indigo-500 text-gray-900'
+                      ? 'border-indigo-500 text-gray-900 blur-[2px]'
                       : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                   } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
                 >

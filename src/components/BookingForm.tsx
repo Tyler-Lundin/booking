@@ -1,199 +1,169 @@
-'use client'
+// components/BookingForm.tsx
 
-import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { DateTime } from 'luxon'
-import { useAuth } from '@/contexts/AuthContext'
-import Cookies from 'js-cookie'
-import SocialLogin from './SocialLogin'
-import { getFingerprint } from '@/lib/fingerprint'
+'use client';
+
+import { useEffect, useState } from 'react';
+import { DateTime } from 'luxon';
+import Cookies from 'js-cookie';
+import useBookingForm from '@/hooks/useBookingForm';
+import { createBrowserClient } from '@supabase/ssr';
+import { Database } from '@/types/database.types';
 
 interface BookingFormProps {
-  selectedDate: string
-  selectedTime: string
-  onBookingComplete: () => void
-  embedId: string
+  selectedDate: string;
+  selectedTime: string;
+  embedId: string;
 }
 
-interface BookingFormData {
-  name: string
-  email: string
-  phone: string
-  message: string
+interface AvailabilitySlot {
+  id: string;
+  day_of_week: number | null;
+  start_time: string;
+  end_time: string;
+  buffer_minutes: number | null;
+  embed_id: string;
+  is_recurring: boolean | null;
+  start_date: string | null;
+  end_date: string | null;
 }
 
-const BOOKING_COOKIE_KEY = 'booking_completed'
-const BOOKING_COOKIE_EXPIRY = 24 // hours
+export default function BookingForm({ selectedDate, selectedTime, embedId }: BookingFormProps) {
+  console.log('BookingForm Props:', { selectedDate, selectedTime, embedId });
+  
+  const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(null);
 
-export default function BookingForm({
-  selectedDate,
-  selectedTime,
-  onBookingComplete,
-  embedId,
-}: BookingFormProps) {
-  const { user } = useAuth()
-  const [formData, setFormData] = useState<BookingFormData>({
-    name: '',
-    email: user?.email || '',
-    phone: '',
-    message: ''
-  })
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
-  const [showConfirmation, setShowConfirmation] = useState(false)
-  const [hasRecentBooking, setHasRecentBooking] = useState(false)
-  const [createAccount, setCreateAccount] = useState(false)
-  const supabase = createClient()
+  const supabase = createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  const {
+    formData,
+    setFormData,
+    user,
+    handleInputChange,
+    handleSubmit,
+    handleConfirmBooking,
+    isSubmitting,
+    error,
+    success,
+    showConfirmation,
+    setShowConfirmation,
+    hasRecentBooking,
+    createAccount,
+    setCreateAccount,
+    setSelectedDate,
+    setSelectedTime,
+    setEmbedId,
+  } = useBookingForm();
 
   useEffect(() => {
-    // Check for existing booking cookie
-    const bookingCookie = Cookies.get(BOOKING_COOKIE_KEY)
-    if (bookingCookie) {
-      setHasRecentBooking(true)
-    }
-  }, [])
+    setSelectedDate(selectedDate);
+    setSelectedTime(selectedTime);
+    setEmbedId(embedId);
+    fetchAvailability();
+  }, [selectedDate, selectedTime, embedId]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setShowConfirmation(true)
-  }
-
-  const handleConfirmBooking = async () => {
-    setIsSubmitting(true)
-    setError(null)
-    setShowConfirmation(false)
-
+  const fetchAvailability = async () => {
     try {
-      // Get fingerprint for unauthenticated users
-      const fingerprint = user ? null : await getFingerprint()
-
-      // For unauthenticated users, check for recent bookings with the same fingerprint
-      if (!user && fingerprint) {
-        const { data: recentBookings, error: recentBookingsError } = await supabase
-          .from('bookings')
-          .select('*')
-          .eq('fingerprint', fingerprint)
-          .gte('created_at', DateTime.now().minus({ hours: 24 }).toISO())
-
-        if (recentBookingsError) throw recentBookingsError
-        if (recentBookings && recentBookings.length > 0) {
-          throw new Error('You have already made a booking in the last 24 hours. Please wait before making another booking.')
-        }
-      }
-
-      // Check if the slot is still available
-      const { data: availability, error: availabilityError } = await supabase
+      const { data, error } = await supabase
         .from('availability')
         .select('*')
-        .eq('day_of_week', DateTime.fromISO(selectedDate).weekday % 7)
-        .eq('start_time', selectedTime)
-        .single()
+        .eq('embed_id', embedId)
+        .order('day_of_week')
+        .order('start_time');
 
-      if (availabilityError || !availability) {
-        throw new Error('This time slot is no longer available')
-      }
-
-      // Check for existing bookings that might conflict
-      const { data: existingBookings, error: bookingsError } = await supabase
-        .from('bookings')
-        .select('*')
-        .eq('date', selectedDate)
-        .eq('start_time', selectedTime)
-
-      if (bookingsError) throw bookingsError
-      if (existingBookings && existingBookings.length > 0) {
-        throw new Error('This time slot has already been booked')
-      }
-
-      const endTime = DateTime.fromFormat(selectedTime, 'HH:mm:ss')
-        .plus({ minutes: 30 }) // Default 30-minute duration
-        .toFormat('HH:mm:ss')
-
-      // Create the booking
-      const bookingData = {
-        date: selectedDate,
-        start_time: selectedTime,
-        end_time: endTime,
-        status: 'pending',
-        notes: formData.message,
-        name: formData.name,
-        email: formData.email,
-        phone_number: formData.phone,
-        embed_id: embedId,
-        ...(user ? { user_id: user.id } : {}), // Only include user_id if user is authenticated
-        ...(fingerprint ? { fingerprint } : {}), // Include fingerprint for unauthenticated users
-      }
-
-      const { data: booking, error: bookingError } = await supabase
-        .from('bookings')
-        .insert(bookingData)
-        .select(`
-          id,
-          date,
-          start_time,
-          end_time,
-          status,
-          embed_id,
-          user:users (
-            email,
-            full_name
-          )
-        `)
-        .single()
-
-      if (bookingError) throw bookingError
-
-      // Set cookie with booking ID for 24 hours
-      Cookies.set(BOOKING_COOKIE_KEY, booking.id, { expires: BOOKING_COOKIE_EXPIRY / 24 })
-      setHasRecentBooking(true)
-
-      setSuccess(true)
-      setFormData({
-        name: '',
-        email: '',
-        phone: '',
-        message: ''
-      })
+      if (error) throw error;
+      setAvailability(data || []);
       
-      // Call onBookingComplete to reset the parent state
-      onBookingComplete()
+      // Find the slot that matches the selected time
+      const date = DateTime.fromISO(selectedDate);
+      const dayOfWeek = date.weekday % 7; // Convert to 0-6 range
+      const selectedDateTime = DateTime.fromFormat(selectedTime, 'HH:mm:ss');
       
-      // After a short delay, redirect to the booking details page
-      setTimeout(() => {
-        window.location.href = `/bookings/${booking.id}`
-      }, 2000)
-
-      // If user wants to create an account and isn't already logged in
-      if (createAccount && !user) {
-        // Generate a random password
-        const tempPassword = Math.random().toString(36).slice(-8)
+      console.log('Validating time slot:', {
+        selectedDate,
+        selectedTime,
+        dayOfWeek,
+        selectedDateTime: selectedDateTime.toFormat('HH:mm:ss')
+      });
+      
+      const matchingSlot = data?.find(slot => {
+        if (slot.day_of_week !== dayOfWeek) return false;
         
-        // Create the account
-        const { error: signUpError } = await supabase.auth.signUp({
-          email: formData.email,
-          password: tempPassword,
-        })
-
-        if (signUpError) {
-          console.error('Error creating account:', signUpError)
-          // Continue with booking success even if account creation fails
-        }
-      }
-
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred while creating your booking')
+        const slotStart = DateTime.fromFormat(slot.start_time, 'HH:mm:ss');
+        const slotEnd = DateTime.fromFormat(slot.end_time, 'HH:mm:ss');
+        
+        console.log('Checking slot:', {
+          slotStart: slotStart.toFormat('HH:mm:ss'),
+          slotEnd: slotEnd.toFormat('HH:mm:ss'),
+          selectedTime: selectedDateTime.toFormat('HH:mm:ss'),
+          isWithinRange: selectedDateTime >= slotStart && selectedDateTime < slotEnd
+        });
+        
+        return selectedDateTime >= slotStart && selectedDateTime < slotEnd;
+      });
+      
+      setSelectedSlot(matchingSlot || null);
+    } catch (error) {
+      console.error('Error fetching availability:', error);
     } finally {
-      setIsSubmitting(false)
+      setLoading(false);
     }
+  };
+
+  const formattedDate = DateTime.fromISO(selectedDate).toLocaleString(DateTime.DATE_MED);
+  const formattedTime = DateTime.fromFormat(selectedTime, 'HH:mm:ss').toFormat('h:mm a');
+
+  const isTimeSlotAvailable = (time: string) => {
+    if (!availability.length) return false;
+    
+    const [hours, minutes] = time.split(':').map(Number);
+    const selectedTime = hours * 60 + minutes;
+    
+    return availability.some(slot => {
+      const [startHours, startMinutes] = slot.start_time.split(':').map(Number);
+      const [endHours, endMinutes] = slot.end_time.split(':').map(Number);
+      const startTime = startHours * 60 + startMinutes;
+      const endTime = endHours * 60 + endMinutes;
+      
+      return selectedTime >= startTime && selectedTime <= endTime;
+    });
+  };
+
+  const isDayAvailable = (date: Date) => {
+    if (!availability.length) return false;
+    
+    const dayOfWeek = date.getDay();
+    return availability.some(slot => slot.day_of_week === dayOfWeek);
+  };
+
+  if (loading) {
+    return (
+      <div className="animate-pulse space-y-4">
+        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+        <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+        <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+      </div>
+    );
+  }
+
+  if (!selectedSlot) {
+    return (
+      <div className="text-center space-y-4">
+        <div className="text-red-500 text-5xl mb-4">⚠️</div>
+        <h3 className="text-xl font-semibold">Invalid Time Slot</h3>
+        <p className="text-gray-600">
+          The selected time is not available for booking. Please select a different time.
+        </p>
+        <div className="text-sm text-gray-500">
+          <p>Date: {formattedDate}</p>
+          <p>Time: {formattedTime}</p>
+        </div>
+      </div>
+    );
   }
 
   if (hasRecentBooking) {
@@ -202,22 +172,22 @@ export default function BookingForm({
         <div className="text-indigo-500 text-5xl mb-4">✓</div>
         <h3 className="text-xl font-semibold">Booking Completed</h3>
         <p className="text-gray-600">
-          Thank you for your booking! You can create another booking after {BOOKING_COOKIE_EXPIRY} hours.
+          Thank you for your booking! You can create another booking after 24 hours.
         </p>
         <div className="text-sm text-gray-500">
-          <p>Date: {DateTime.fromISO(selectedDate).toLocaleString(DateTime.DATE_MED)}</p>
-          <p>Time: {DateTime.fromFormat(selectedTime, 'HH:mm:ss').toFormat('h:mm a')}</p>
+          <p>Date: {formattedDate}</p>
+          <p>Time: {formattedTime}</p>
         </div>
         <div className="pt-4">
           <a
-            href={`/bookings/${Cookies.get(BOOKING_COOKIE_KEY)}`}
+            href={`/bookings/${Cookies.get('booking_completed')}`}
             className="text-indigo-600 hover:text-indigo-700"
           >
             View Booking Details
           </a>
         </div>
       </div>
-    )
+    );
   }
 
   if (success) {
@@ -229,193 +199,172 @@ export default function BookingForm({
           Your booking has been created successfully. Redirecting to booking details...
         </p>
         <div className="text-sm text-gray-500">
-          <p>Date: {DateTime.fromISO(selectedDate).toLocaleString(DateTime.DATE_MED)}</p>
-          <p>Time: {DateTime.fromFormat(selectedTime, 'HH:mm:ss').toFormat('h:mm a')}</p>
+          <p>Date: {formattedDate}</p>
+          <p>Time: {formattedTime}</p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
-    <>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Breadcrumb section */}
-        <div className="bg-gray-50 p-4 rounded-lg mb-6">
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <span className="font-medium">Selected Appointment:</span>
-            <span className="text-gray-900">
-              {DateTime.fromISO(selectedDate).toLocaleString(DateTime.DATE_MED)}
-            </span>
-            <span className="text-gray-400">•</span>
-            <span className="text-gray-900">
-              {DateTime.fromFormat(selectedTime, 'HH:mm:ss').toFormat('h:mm a')}
-            </span>
+    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
+      <h2 className="text-2xl font-bold mb-6 text-center">Book an Appointment</h2>
+      
+      {loading ? (
+        <div className="space-y-4">
+          <div className="h-10 bg-gray-200 rounded animate-pulse" />
+          <div className="h-10 bg-gray-200 rounded animate-pulse" />
+          <div className="h-10 bg-gray-200 rounded animate-pulse" />
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
+              Date
+            </label>
+            <input
+              type="date"
+              id="date"
+              value={formData.date}
+              onChange={(e) => {
+                const date = new Date(e.target.value);
+                if (isDayAvailable(date)) {
+                  setFormData({ ...formData, date: e.target.value });
+                }
+              }}
+              min={new Date().toISOString().split('T')[0]}
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            />
           </div>
-        </div>
 
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-            Name *
-          </label>
-          <input
-            type="text"
-            id="name"
-            name="name"
-            value={formData.name}
-            onChange={handleInputChange}
-            required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-            placeholder="Your name"
-          />
-        </div>
+          <div>
+            <label htmlFor="time" className="block text-sm font-medium text-gray-700 mb-1">
+              Time
+            </label>
+            <select
+              id="time"
+              value={formData.time}
+              onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            >
+              <option value="">Select a time</option>
+              {Array.from({ length: 24 * 2 }, (_, i) => {
+                const hours = Math.floor(i / 2);
+                const minutes = (i % 2) * 30;
+                const time = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                const isAvailable = isTimeSlotAvailable(time);
+                
+                return (
+                  <option 
+                    key={time} 
+                    value={time}
+                    disabled={!isAvailable}
+                    className={!isAvailable ? 'text-gray-400' : ''}
+                  >
+                    {time} {!isAvailable ? '(Unavailable)' : ''}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
 
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-            Email {!user && '*'}
-          </label>
-          <input
-            type="email"
-            id="email"
-            name="email"
-            value={formData.email}
-            onChange={handleInputChange}
-            required={!user}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-            placeholder="your@email.com"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-            Phone *
-          </label>
-          <input
-            type="tel"
-            id="phone"
-            name="phone"
-            value={formData.phone}
-            onChange={handleInputChange}
-            required
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-            placeholder="Your phone number"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="message" className="block text-sm font-medium text-gray-700">
-            Message
-          </label>
-          <textarea
-            id="message"
-            name="message"
-            value={formData.message}
-            onChange={handleInputChange}
-            rows={4}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-            placeholder="Tell us about your appointment..."
-          />
-        </div>
-
-        {!user && (
-          <div className="space-y-4">
-            <div className="flex items-center">
+          {['name', 'email', 'phone'].map(field => (
+            <div key={field}>
+              <label htmlFor={field} className="block text-sm font-medium text-gray-700 capitalize">
+                {field} *
+              </label>
               <input
-                type="checkbox"
-                id="createAccount"
-                checked={createAccount}
-                onChange={(e) => setCreateAccount(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                type={field === 'email' ? 'email' : field === 'phone' ? 'tel' : 'text'}
+                id={field}
+                name={field}
+                value={formData[field as keyof typeof formData] as string}
+                onChange={handleInputChange}
+                required={field !== 'email' || !user}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                placeholder={`Your ${field}`}
               />
-              <label htmlFor="createAccount" className="ml-2 block text-sm text-gray-700">
-                Create an account to manage your bookings
+            </div>
+          ))}
+
+          <div>
+            <label htmlFor="message" className="block text-sm font-medium text-gray-700">
+              Message
+            </label>
+            <textarea
+              id="message"
+              name="message"
+              value={formData.message}
+              onChange={handleInputChange}
+              rows={4}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              placeholder="Tell us about your appointment..."
+            />
+          </div>
+
+          {!user && (
+            <div className="space-y-4">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="createAccount"
+                  checked={createAccount}
+                  onChange={(e) => setCreateAccount(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="ml-2 text-sm text-gray-700">Create an account to manage your bookings</span>
               </label>
             </div>
+          )}
 
-            {createAccount && (
-              <div className="mt-4">
-                <p className="text-sm text-gray-600 mb-2">Sign up with:</p>
-                <SocialLogin />
-              </div>
-            )}
-          </div>
-        )}
+          {error && <div className="text-red-500 text-sm">{error}</div>}
 
-        {error && (
-          <div className="text-red-500 text-sm">
-            {error}
-          </div>
-        )}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full rounded-md bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
+          >
+            {isSubmitting ? 'Creating Booking...' : 'Review Booking'}
+          </button>
 
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full rounded-md bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
-        >
-          {isSubmitting ? 'Creating Booking...' : 'Review Booking'}
-        </button>
-      </form>
-
-      {/* Confirmation Modal */}
-      {showConfirmation && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">Confirm Your Booking</h3>
-            
-            <div className="space-y-3 mb-6">
-              <div>
-                <span className="text-gray-600">Date:</span>
-                <span className="ml-2 font-medium">
-                  {DateTime.fromISO(selectedDate).toLocaleString(DateTime.DATE_MED)}
-                </span>
-              </div>
-              <div>
-                <span className="text-gray-600">Time:</span>
-                <span className="ml-2 font-medium">
-                  {DateTime.fromFormat(selectedTime, 'HH:mm:ss').toFormat('h:mm a')}
-                </span>
-              </div>
-              <div>
-                <span className="text-gray-600">Name:</span>
-                <span className="ml-2 font-medium">{formData.name}</span>
-              </div>
-              {formData.email && (
-                <div>
-                  <span className="text-gray-600">Email:</span>
-                  <span className="ml-2 font-medium">{formData.email}</span>
+          {showConfirmation && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-lg">
+                <h3 className="text-lg font-semibold mb-4">Confirm Your Booking</h3>
+                <ul className="space-y-2 text-sm text-gray-700">
+                  <li><strong>Date:</strong> {formattedDate}</li>
+                  <li><strong>Time:</strong> {formattedTime}</li>
+                  {selectedSlot.buffer_minutes && selectedSlot.buffer_minutes > 0 && (
+                    <li><strong>Buffer Time:</strong> {selectedSlot.buffer_minutes} minutes</li>
+                  )}
+                  <li><strong>Name:</strong> {formData.name}</li>
+                  {formData.email && <li><strong>Email:</strong> {formData.email}</li>}
+                  {formData.phone && <li><strong>Phone:</strong> {formData.phone}</li>}
+                  {formData.message && <li><strong>Message:</strong> {formData.message}</li>}
+                </ul>
+                <div className="mt-6 flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmation(false)}
+                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmBooking}
+                    disabled={isSubmitting}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    Confirm Booking
+                  </button>
                 </div>
-              )}
-              {formData.phone && (
-                <div>
-                  <span className="text-gray-600">Phone:</span>
-                  <span className="ml-2 font-medium">{formData.phone}</span>
-                </div>
-              )}
-              {formData.message && (
-                <div>
-                  <span className="text-gray-600">Message:</span>
-                  <p className="mt-1 text-sm text-gray-700">{formData.message}</p>
-                </div>
-              )}
+              </div>
             </div>
-
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => setShowConfirmation(false)}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmBooking}
-                disabled={isSubmitting}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
-              >
-                Confirm Booking
-              </button>
-            </div>
-          </div>
-        </div>
+          )}
+        </form>
       )}
-    </>
-  )
-} 
+    </div>
+  );
+}

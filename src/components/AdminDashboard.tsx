@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { formatDate, formatTime } from '@/utils/time'
 import { DateTime } from 'luxon'
 
@@ -34,7 +34,7 @@ export default function AdminDashboard() {
 
   const fetchData = async () => {
     try {
-      const supabase = createClient()
+      const supabase = createBrowserSupabaseClient()
       
       const [bookingsResponse, availabilityResponse] = await Promise.all([
         supabase
@@ -60,7 +60,7 @@ export default function AdminDashboard() {
 
   const handleStatusChange = async (bookingId: string, newStatus: string) => {
     try {
-      const supabase = createClient()
+      const supabase = createBrowserSupabaseClient()
       const { error } = await supabase
         .from('bookings')
         .update({ status: newStatus })

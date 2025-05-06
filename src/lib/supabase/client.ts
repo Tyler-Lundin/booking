@@ -1,51 +1,34 @@
-import { createBrowserClient } from '@supabase/ssr'
-import { AuthChangeEvent, Session } from '@supabase/supabase-js'
+'use client';
 
-let supabaseClient: ReturnType<typeof createBrowserClient> | null = null
+import { createBrowserClient } from '@supabase/ssr';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
-export function createClient() {
-  if (supabaseClient) {
-    return supabaseClient
-  }
+let supabaseClient: SupabaseClient | null = null;
 
-  // Only run browser-specific code if we're in the browser
+export function createBrowserSupabaseClient(): SupabaseClient {
+  if (supabaseClient) return supabaseClient;
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+  supabaseClient = createBrowserClient(supabaseUrl, supabaseAnonKey);
+
+  // Only add auth state change listener in browser
   if (typeof window !== 'undefined') {
-    try {
-      supabaseClient = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
-
-      // Add logging to the client's auth state changes
-      supabaseClient.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
-        console.log('Auth state changed:', {
-          event,
-          hasSession: !!session,
-          sessionUser: session?.user?.email
-        })
-      })
-
-      return supabaseClient
-    } catch (error) {
-      console.error('Error creating Supabase client:', error)
-      throw error
-    }
+    supabaseClient.auth.onAuthStateChange(
+      async (event: AuthChangeEvent, session: Session | null) => {
+        console.log('[Supabase Auth]', { event, session });
+        
+        // Handle session changes
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          // Session is available, you can update your UI here
+        } else if (event === 'SIGNED_OUT') {
+          // Session is removed, you can update your UI here
+        }
+      }
+    );
   }
 
-  // Return a dummy client for SSR
-  return {
-    auth: {
-      signInWithPassword: async () => ({ error: new Error('Not available during SSR') }),
-      signOut: async () => ({ error: new Error('Not available during SSR') }),
-      getSession: async () => ({ data: { session: null }, error: null }),
-      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } })
-    },
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          single: async () => ({ data: null, error: new Error('Not available during SSR') })
-        })
-      })
-    })
-  } as ReturnType<typeof createBrowserClient>
-} 
+  return supabaseClient;
+}

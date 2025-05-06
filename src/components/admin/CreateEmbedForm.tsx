@@ -7,6 +7,12 @@ interface CreateEmbedFormProps {
     id: string
     name: string
     client_id: string
+    supabase_project_id: string
+    supabase_url: string
+    supabase_api_key: string
+    supabase_service_role_key?: string
+    supabase_database_url?: string
+    supabase_database_name?: string
     settings: {
       min_booking_notice_hours?: number
       max_attendees?: number
@@ -21,6 +27,12 @@ export default function CreateEmbedForm({ onSubmit, onCancel }: CreateEmbedFormP
     id: '',
     name: '',
     client_id: '',
+    supabase_project_id: '',
+    supabase_url: '',
+    supabase_api_key: '',
+    supabase_service_role_key: '',
+    supabase_database_url: '',
+    supabase_database_name: '',
     settings: {
       min_booking_notice_hours: 2,
       max_attendees: 10,
@@ -57,7 +69,7 @@ export default function CreateEmbedForm({ onSubmit, onCancel }: CreateEmbedFormP
       <div className="grid grid-cols-2 gap-6">
         <div>
           <label htmlFor="id" className="block text-sm font-medium text-gray-700">
-            Embed ID
+            Embed ID <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -73,7 +85,7 @@ export default function CreateEmbedForm({ onSubmit, onCancel }: CreateEmbedFormP
 
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-            Display Name
+            Display Name <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -89,7 +101,7 @@ export default function CreateEmbedForm({ onSubmit, onCancel }: CreateEmbedFormP
 
         <div>
           <label htmlFor="client_id" className="block text-sm font-medium text-gray-700">
-            Client ID
+            Client ID <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -100,6 +112,99 @@ export default function CreateEmbedForm({ onSubmit, onCancel }: CreateEmbedFormP
             required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             placeholder="e.g., client-123"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="supabase_project_id" className="block text-sm font-medium text-gray-700">
+            Supabase Project ID <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            id="supabase_project_id"
+            name="supabase_project_id"
+            value={formData.supabase_project_id}
+            onChange={handleInputChange}
+            required
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            placeholder="Enter your Supabase project ID"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="supabase_url" className="block text-sm font-medium text-gray-700">
+            Supabase URL <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            id="supabase_url"
+            name="supabase_url"
+            value={formData.supabase_url}
+            onChange={handleInputChange}
+            required
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            placeholder="Enter your Supabase URL"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="supabase_api_key" className="block text-sm font-medium text-gray-700">
+            Supabase API Key <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="password"
+            id="supabase_api_key"
+            name="supabase_api_key"
+            value={formData.supabase_api_key}
+            onChange={handleInputChange}
+            required
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            placeholder="Enter your Supabase API key"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="supabase_service_role_key" className="block text-sm font-medium text-gray-500">
+            Service Role Key (Optional)
+          </label>
+          <input
+            type="password"
+            id="supabase_service_role_key"
+            name="supabase_service_role_key"
+            value={formData.supabase_service_role_key}
+            onChange={handleInputChange}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            placeholder="Enter your service role key"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="supabase_database_url" className="block text-sm font-medium text-gray-500">
+            Database URL (Optional)
+          </label>
+          <input
+            type="text"
+            id="supabase_database_url"
+            name="supabase_database_url"
+            value={formData.supabase_database_url}
+            onChange={handleInputChange}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            placeholder="Enter your database URL"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="supabase_database_name" className="block text-sm font-medium text-gray-500">
+            Database Name (Optional)
+          </label>
+          <input
+            type="text"
+            id="supabase_database_name"
+            name="supabase_database_name"
+            value={formData.supabase_database_name}
+            onChange={handleInputChange}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            placeholder="Enter your database name"
           />
         </div>
 

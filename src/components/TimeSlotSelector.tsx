@@ -1,207 +1,86 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { DateTime } from 'luxon'
-import { formatTime } from '@/utils/time'
+import { DateTime } from 'luxon';
+import { formatTime } from '@/utils/time';
+import useTimeSlotSelector from '@/hooks/useTimeSlotSelector';
 
 interface TimeSlotSelectorProps {
-  selectedDate: string | null
-  onTimeSelect: (time: string) => void
-  selectedTime: string | null
-  onBookingComplete?: () => void
-  embedId: string
-}
-
-interface Availability {
-  id: string
-  day_of_week: number
-  start_time: string
-  end_time: string
-  buffer_minutes: number
-}
-
-interface Booking {
-  id: string
-  start_time: string
-  status: string
-}
-
-interface EmbedSettings {
-  id: string
-  name: string
-  client_id: string
-  settings: {
-    allowed_booking_types?: string[]
-    max_attendees?: number
-    min_booking_notice_hours?: number
-    // Add more settings as needed
-  }
+  selectedDate: string | null;
+  onTimeSelect: (time: string) => void;
+  selectedTime: string | null;
+  onBookingComplete?: boolean;
+  embedId: string;
 }
 
 export default function TimeSlotSelector({
   selectedDate,
   onTimeSelect,
   selectedTime,
-  onBookingComplete,
+  onBookingComplete = false,
   embedId,
 }: TimeSlotSelectorProps) {
-  const [availability, setAvailability] = useState<Availability[]>([])
-  const [bookings, setBookings] = useState<Booking[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [embedSettings, setEmbedSettings] = useState<EmbedSettings | null>(null)
-  const supabase = createClient()
+  const {
+    timeSlots,
+    loading,
+    error,
+  } = useTimeSlotSelector({ embedId, selectedDate: selectedDate ?? '', onBookingComplete });
 
-  useEffect(() => {
-    if (embedId) {
-      fetchEmbedSettings()
-    }
-  }, [embedId])
-
-  useEffect(() => {
-    if (selectedDate) {
-      fetchAvailability()
-      fetchBookings()
-    }
-  }, [selectedDate])
-
-  // Add effect to refresh data when a booking is completed
-  useEffect(() => {
-    if (onBookingComplete) {
-      fetchAvailability()
-      fetchBookings()
-    }
-  }, [onBookingComplete])
-
-  const fetchEmbedSettings = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('embeds')
-        .select('*')
-        .eq('id', embedId)
-        .single()
-
-      if (error) throw error
-      setEmbedSettings(data)
-    } catch (err) {
-      console.error('Failed to load embed settings:', err)
-    }
+  if (!selectedDate) {
+    return <div className="text-center py-6 text-gray-500">Select a date to see available times.</div>;
   }
-
-  const fetchAvailability = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const { data, error } = await supabase
-        .from('availability')
-        .select('*')
-        .order('start_time', { ascending: true })
-
-      if (error) throw error
-      setAvailability(data || [])
-    } catch (err) {
-      setError('Failed to load availability')
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchBookings = async () => {
-    if (!selectedDate) return
-
-    try {
-      const { data, error } = await supabase
-        .from('bookings')
-        .select('id, start_time, status')
-        .eq('date', selectedDate)
-        .in('status', ['pending', 'confirmed'])
-
-      if (error) throw error
-      setBookings(data || [])
-    } catch (err) {
-      console.error('Failed to load bookings:', err)
-    }
-  }
-
-  const getTimeSlots = () => {
-    if (!selectedDate) return []
-    
-    const date = DateTime.fromISO(selectedDate)
-    const dayOfWeek = date.weekday % 7 // Convert to 0-6 range
-    const dayAvailability = availability.filter(a => a.day_of_week === dayOfWeek)
-    
-    if (dayAvailability.length === 0) return []
-
-    // Apply embed-specific rules if they exist
-    let filteredSlots = dayAvailability
-    if (embedSettings?.settings) {
-      const { min_booking_notice_hours } = embedSettings.settings
-      if (min_booking_notice_hours) {
-        const now = DateTime.now()
-        const minNoticeTime = now.plus({ hours: min_booking_notice_hours })
-        filteredSlots = filteredSlots.filter(slot => {
-          const slotTime = DateTime.fromISO(`${selectedDate}T${slot.start_time}`)
-          return slotTime >= minNoticeTime
-        })
-      }
-    }
-
-    // Return all time slots for the day
-    return filteredSlots.map(slot => ({
-      start: slot.start_time,
-      end: slot.end_time,
-      isBooked: bookings.some(booking => booking.start_time === slot.start_time)
-    }))
-  }
-
-  const timeSlots = getTimeSlots()
 
   if (loading) {
-    return <div className="text-center py-4">Loading available times...</div>
+    return <div className="text-center py-6 text-indigo-500 animate-pulse">Loading available times...</div>;
   }
 
   if (error) {
-    return <div className="text-red-500 text-center py-4">{error}</div>
-  }
-
-  if (!selectedDate) {
-    return <div className="text-center py-4 text-gray-500">Select a date to see available times</div>
-  }
-
-  if (timeSlots.length === 0) {
-    return <div className="text-center py-4 text-gray-500">No available times for this date</div>
+    return <div className="text-center py-6 text-red-600 font-medium">{error}</div>;
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-      {timeSlots.map((slot) => {
-        const startTime = formatTime(slot.start, DateTime.now().zoneName)
-        const endTime = formatTime(slot.end, DateTime.now().zoneName)
-        const isSelected = selectedTime === slot.start
-        const isBooked = slot.isBooked
-        
-        return (
-          <button
-            key={slot.start}
-            onClick={() => !isBooked && onTimeSelect(slot.start)}
-            disabled={isBooked}
-            className={`
-              p-3 rounded-lg text-center
-              ${isBooked 
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                : isSelected 
-                  ? 'bg-indigo-500 text-white hover:bg-indigo-600' 
-                  : 'hover:bg-gray-100 dark:hover:bg-gray-800'
-              }
-            `}
-          >
-            {startTime} - {endTime}
-            {isBooked && <span className="block text-xs mt-1">Booked</span>}
-          </button>
-        )
-      })}
+    <div className="max-w-4xl mx-auto p-6">
+      <div className="mb-6">
+        <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">Available Time Slots</h2>
+        <p className="text-gray-600 dark:text-gray-400">Select a time for your appointment</p>
+      </div>
+
+      {timeSlots.length === 0 ? (
+        <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <p className="text-gray-600 dark:text-gray-400">No available time slots for this date</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          {timeSlots.map((slot) => {
+            const startTime = formatTime(slot.start, DateTime.now().zoneName);
+            const endTime = formatTime(slot.end, DateTime.now().zoneName);
+            const isSelected = selectedTime === slot.start;
+
+            return (
+              <button
+                key={slot.start}
+                onClick={() => !slot.isBooked && onTimeSelect(slot.start)}
+                disabled={slot.isBooked}
+                className={`
+                  relative p-4 rounded-xl text-sm transition-all duration-200 border-2
+                  ${slot.isBooked
+                    ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed'
+                    : isSelected
+                    ? 'bg-indigo-600 text-white border-indigo-700 shadow-lg transform scale-105'
+                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-indigo-300 dark:bg-gray-800 dark:text-white dark:border-gray-700 dark:hover:bg-gray-700'}
+                `}
+              >
+                <div className="font-medium">{startTime}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">to {endTime}</div>
+                {slot.isBooked && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-gray-800/80 rounded-xl">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Booked</span>
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
-  )
-} 
+  );
+}

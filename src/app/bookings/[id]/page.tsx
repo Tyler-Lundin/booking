@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useState, use } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
-import { createClient } from '@/lib/supabase/client'
 import { DateTime } from 'luxon'
+import { useSupabaseAuth } from '@/hooks/useSupbaseAuth'
+
+
 
 interface Booking {
   id: string
@@ -17,22 +18,23 @@ interface Booking {
   phone_number: string | null
   embed_id: string
   user_id: string | null
+  embed: {
+    owner_id: string
+    admin_ids: string[]
+  }
 }
 
 interface PageProps {
-  params: Promise<{
-    id: string
-  }>
+  params: Promise<{ id: string }>
 }
 
 export default function BookingDetailsPage({ params }: PageProps) {
-  const { user } = useAuth()
+  const { user, supabase } = useSupabaseAuth()
   const [booking, setBooking] = useState<Booking | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const supabase = createClient()
-  const unwrappedParams = use(params)
-  const bookingId = unwrappedParams.id
+
+  const { id: bookingId } = use(params)
 
   useEffect(() => {
     const fetchBooking = async () => {
@@ -41,7 +43,7 @@ export default function BookingDetailsPage({ params }: PageProps) {
           .from('bookings')
           .select('*')
           .eq('id', bookingId)
-          .single()
+          .maybeSingle()
 
         if (error) throw error
         if (!data) {
@@ -49,35 +51,56 @@ export default function BookingDetailsPage({ params }: PageProps) {
           return
         }
 
-        // Allow access if:
-        // 1. The booking has no user_id (unauthenticated booking)
-        // 2. The current user matches the booking's user_id
-        // 3. The current user is an admin
-        if (data.user_id && user?.id !== data.user_id) {
-          // Check if user is admin
-          const { data: userData } = await supabase
-            .from('users')
-            .select('role')
-            .eq('id', user?.id)
-            .single()
+        const currentUserId = user?.id ?? null
+        const isBooker = data.user_id === currentUserId
+        
+        
+        let isOwnerOrAdmin = false
 
-          if (userData?.role !== 'admin') {
-            setError('You do not have permission to view this booking')
+        
+        
+        if (!isBooker && data.embed_id) {
+          const { data: embedData, error: embedError } = await supabase
+            .from('embeds')
+            .select('owner_id, admin_ids')
+            .eq('id', data.embed_id)
+            .maybeSingle()
+        
+            
+            console.log({
+              currentUserId,
+              isBooker,
+              isOwner: embedData?.owner_id === currentUserId,
+              isAdmin: embedData?.admin_ids?.includes(currentUserId),
+            })
+            
+          if (embedError || !embedData) {
+            setError('Embed not found or failed to load')
             return
           }
+        
+          const isOwner = embedData.owner_id === currentUserId
+          const isAdmin = Array.isArray(embedData.admin_ids) && embedData.admin_ids.includes(currentUserId)
+        
+          isOwnerOrAdmin = isOwner || isAdmin
+        }
+        
+        if (!isBooker && !isOwnerOrAdmin) {
+          setError('You do not have permission to view this booking')
+          return        
         }
 
         setBooking(data)
       } catch (err) {
-        setError('Failed to load booking details')
         console.error(err)
+        setError('Failed to load booking details')
       } finally {
         setLoading(false)
       }
     }
 
     fetchBooking()
-  }, [user, bookingId])
+  }, [user, bookingId, supabase])
 
   if (loading) {
     return (
@@ -101,9 +124,7 @@ export default function BookingDetailsPage({ params }: PageProps) {
     )
   }
 
-  if (!booking) {
-    return null
-  }
+  if (!booking) return null
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -128,7 +149,7 @@ export default function BookingDetailsPage({ params }: PageProps) {
               <div className="sm:col-span-1">
                 <dt className="text-sm font-medium text-gray-500">Time</dt>
                 <dd className="mt-1 text-sm text-gray-900">
-                  {DateTime.fromFormat(booking.start_time, 'HH:mm:ss').toFormat('h:mm a')} -{' '}
+                  {DateTime.fromFormat(booking.start_time, 'HH:mm:ss').toFormat('h:mm a')} –{' '}
                   {DateTime.fromFormat(booking.end_time, 'HH:mm:ss').toFormat('h:mm a')}
                 </dd>
               </div>
@@ -164,4 +185,4 @@ export default function BookingDetailsPage({ params }: PageProps) {
       </div>
     </div>
   )
-} 
+}

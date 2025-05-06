@@ -1,142 +1,17 @@
 'use client'
-
-import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { Database } from '@/types/database.types'
-
-type AppointmentType = Database['public']['Tables']['appointment_types']['Row']
-type AppointmentField = Database['public']['Tables']['appointment_fields']['Row']
-type FieldType = 'text' | 'number' | 'select' | 'textarea' | 'checkbox'
+import useAdminConfig from '@/hooks/useAdminConfig'
+import { FieldType } from '@/types/database.types'
 
 export default function AppointmentConfig() {
-  const [appointmentTypes, setAppointmentTypes] = useState<AppointmentType[]>([])
-  const [fields, setFields] = useState<Record<string, AppointmentField[]>>({})
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const supabase = createClient()
-
-  useEffect(() => {
-    fetchAppointmentTypes()
-  }, [])
-
-  const fetchAppointmentTypes = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('appointment_types')
-        .select('*')
-        .order('name')
-
-      if (error) throw error
-      setAppointmentTypes(data || [])
-
-      // Fetch fields for each appointment type
-      const fieldsData: Record<string, AppointmentField[]> = {}
-      for (const type of data || []) {
-        const { data: typeFields, error: fieldsError } = await supabase
-          .from('appointment_fields')
-          .select('*')
-          .eq('appointment_type_id', type.id)
-          .order('order_index')
-
-        if (fieldsError) throw fieldsError
-        fieldsData[type.id] = typeFields || []
-      }
-      setFields(fieldsData)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
-    } finally {
-      setLoading(false)
+  const { appointmentTypes, fields, loading, error, handleAddType, handleUpdateType, handleAddField, handleUpdateField } = useAdminConfig()
+     if (loading) {
+      return <div>Loading...</div>
     }
-  }
-
-  const handleAddType = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('appointment_types')
-        .insert({
-          name: 'New Appointment Type',
-          description: '',
-          duration_minutes: 30,
-          is_active: true
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-      setAppointmentTypes(prev => [...prev, data])
-      setFields(prev => ({ ...prev, [data.id]: [] }))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add appointment type')
+  
+    if (error) {
+      return <div className="text-red-500">{error}</div>
     }
-  }
-
-  const handleUpdateType = async (id: string, updates: Partial<AppointmentType>) => {
-    try {
-      const { error } = await supabase
-        .from('appointment_types')
-        .update(updates)
-        .eq('id', id)
-
-      if (error) throw error
-      setAppointmentTypes(prev =>
-        prev.map(type => (type.id === id ? { ...type, ...updates } : type))
-      )
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update appointment type')
-    }
-  }
-
-  const handleAddField = async (typeId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('appointment_fields')
-        .insert({
-          appointment_type_id: typeId,
-          field_name: 'new_field',
-          field_type: 'text',
-          label: 'New Field',
-          is_required: false,
-          order_index: (fields[typeId]?.length || 0) + 1
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-      setFields(prev => ({
-        ...prev,
-        [typeId]: [...(prev[typeId] || []), data]
-      }))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add field')
-    }
-  }
-
-  const handleUpdateField = async (typeId: string, fieldId: string, updates: Partial<AppointmentField>) => {
-    try {
-      const { error } = await supabase
-        .from('appointment_fields')
-        .update(updates)
-        .eq('id', fieldId)
-
-      if (error) throw error
-      setFields(prev => ({
-        ...prev,
-        [typeId]: prev[typeId].map(field =>
-          field.id === fieldId ? { ...field, ...updates } : field
-        )
-      }))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update field')
-    }
-  }
-
-  if (loading) {
-    return <div>Loading...</div>
-  }
-
-  if (error) {
-    return <div className="text-red-500">{error}</div>
-  }
+    
 
   return (
     <div className="space-y-8">
@@ -164,7 +39,7 @@ export default function AppointmentConfig() {
                 <label className="flex items-center space-x-2">
                   <input
                     type="checkbox"
-                    checked={type.is_active}
+                    checked={type.is_active ?? false}
                     onChange={e => handleUpdateType(type.id, { is_active: e.target.checked })}
                     className="rounded text-indigo-600 focus:ring-indigo-500"
                   />
@@ -203,7 +78,7 @@ export default function AppointmentConfig() {
                   <label className="flex items-center space-x-2">
                     <input
                       type="checkbox"
-                      checked={field.is_required}
+                      checked={field.is_required ?? false}
                       onChange={e => handleUpdateField(type.id, field.id, { is_required: e.target.checked })}
                       className="rounded text-indigo-600 focus:ring-indigo-500"
                     />

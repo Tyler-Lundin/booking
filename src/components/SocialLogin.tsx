@@ -1,9 +1,6 @@
 'use client'
 
-import { useAuth } from '@/contexts/AuthContext'
-
 export default function SocialLogin() {
-  const { signInWithGoogle, signInWithGithub } = useAuth()
 
   return (
     <div className="space-y-3">
