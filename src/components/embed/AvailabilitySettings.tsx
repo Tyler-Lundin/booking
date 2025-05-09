@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Plus, Clock, Trash2, Copy, RotateCcw, Calendar, ChevronDown } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Plus, Clock, Trash2, Copy, Calendar, ChevronDown } from 'lucide-react';
 import { createBrowserClient } from '@supabase/ssr';
 import { Database } from '@/types/database.types';
 
@@ -155,14 +155,12 @@ interface AvailabilitySlot {
 export default function AvailabilitySettings({
   embed,
   isEditing,
-  formData,
-  onInputChange,
 }: AvailabilitySettingsProps) {
+  const [isOpen, setIsOpen] = useState(false);
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
-  const [editingSlot, setEditingSlot] = useState<AvailabilitySlot | null>(null);
   const [newSlot, setNewSlot] = useState({
     day_of_week: 0,
     start_time: '09:00',
@@ -178,27 +176,28 @@ export default function AvailabilitySettings({
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
+  const fetchAvailability = useCallback(async () => {
+      try {
+        const { data, error } = await supabase
+          .from('availability')
+          .select('*')
+          .eq('embed_id', embed.id)
+          .order('day_of_week')
+          .order('start_time');
+  
+        if (error) throw error;
+        setAvailability(data || []);
+      } catch (error) {
+        console.error('Error fetching availability:', error);
+      } finally {
+        setLoading(false);
+      }
+    }, [embed.id, supabase]);
+    
+
   useEffect(() => {
     fetchAvailability();
-  }, [embed.id, supabase]);
-
-  const fetchAvailability = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('availability')
-        .select('*')
-        .eq('embed_id', embed.id)
-        .order('day_of_week')
-        .order('start_time');
-
-      if (error) throw error;
-      setAvailability(data || []);
-    } catch (error) {
-      console.error('Error fetching availability:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [embed.id, supabase, fetchAvailability]);
 
   const handleDelete = async (slotId: string) => {
     if (!confirm('Are you sure you want to delete this availability slot?')) return;
@@ -353,151 +352,171 @@ export default function AvailabilitySettings({
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800">
-      <div className="px-6 py-4">
-        <div className="flex justify-between items-center mb-6">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-6 py-4 flex justify-between items-center text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors rounded-lg"
+      >
+        <div className="flex items-center">
+          <Calendar className="w-5 h-5 text-indigo-500 mr-3" />
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Availability Settings</h2>
-          {isEditing && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowTemplateModal(true)}
-                className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 flex items-center gap-2"
-              >
-                <Calendar size={20} />
-                Templates
-              </button>
-              <button
-                onClick={() => setShowModal(true)}
-                className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 flex items-center gap-2"
-              >
-                <Plus size={20} />
-                Add Time Slot
-              </button>
-              <button
-                onClick={handleDeleteAll}
-                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 flex items-center gap-2"
-              >
-                <Trash2 size={20} />
-                Delete All
-              </button>
+        </div>
+        <svg
+          className={`w-5 h-5 text-gray-400 transform transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {isOpen && (
+        <div className="px-6 py-4">
+          <div className="flex justify-between items-center mb-6">
+            {isEditing && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowTemplateModal(true)}
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+                >
+                  <Calendar size={20} />
+                  Templates
+                </button>
+                <button
+                  onClick={() => setShowModal(true)}
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+                >
+                  <Plus size={20} />
+                  Add Time Slot
+                </button>
+                <button
+                  onClick={handleDeleteAll}
+                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 flex items-center gap-2"
+                >
+                  <Trash2 size={20} />
+                  Delete All
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {DAYS_OF_WEEK.map((day, index) => {
+              const daySlots = getAvailabilityForDay(index);
+              return (
+                <div
+                  key={day}
+                  className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4"
+                >
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">{day}</h3>
+                    {isEditing && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setCopyFromDay(index);
+                            setCopyToDays([]);
+                          }}
+                          className="text-gray-400 hover:text-indigo-600"
+                          title="Copy from this day"
+                        >
+                          <Copy size={16} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (copyFromDay !== null) {
+                              setCopyToDays(prev => 
+                                prev.includes(index) 
+                                  ? prev.filter(d => d !== index)
+                                  : [...prev, index]
+                              );
+                            }
+                          }}
+                          className={`text-gray-400 ${
+                            copyToDays.includes(index) 
+                              ? 'text-indigo-600' 
+                              : 'hover:text-indigo-600'
+                          }`}
+                          title={copyFromDay === null ? "Select a source day first" : "Copy to this day"}
+                        >
+                          <ChevronDown size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {daySlots.length > 0 ? (
+                    <div className="space-y-3">
+                      {daySlots.map((slot) => (
+                        <div
+                          key={slot.id}
+                          className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Clock size={16} className="text-gray-500 dark:text-gray-400" />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">
+                              {new Date(`2000-01-01T${slot.start_time}`).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                              {' - '}
+                              {new Date(`2000-01-01T${slot.end_time}`).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                              {slot.buffer_minutes && slot.buffer_minutes > 0 && (
+                                <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                                  (+{slot.buffer_minutes}m buffer)
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                          {isEditing && (
+                            <button
+                              onClick={() => handleDelete(slot.id)}
+                              className="text-gray-400 hover:text-red-600"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">No availability set</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {copyFromDay !== null && copyToDays.length > 0 && (
+            <div className="fixed bottom-4 right-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  Copy slots from {DAYS_OF_WEEK[copyFromDay]} to {copyToDays.length} day{copyToDays.length > 1 ? 's' : ''}?
+                </span>
+                <button
+                  onClick={handleCopySlots}
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
+                >
+                  Copy
+                </button>
+                <button
+                  onClick={() => {
+                    setCopyFromDay(null);
+                    setCopyToDays([]);
+                  }}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           )}
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {DAYS_OF_WEEK.map((day, index) => {
-            const daySlots = getAvailabilityForDay(index);
-            return (
-              <div
-                key={day}
-                className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4"
-              >
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">{day}</h3>
-                  {isEditing && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setCopyFromDay(index);
-                          setCopyToDays([]);
-                        }}
-                        className="text-gray-400 hover:text-indigo-600"
-                        title="Copy from this day"
-                      >
-                        <Copy size={16} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (copyFromDay !== null) {
-                            setCopyToDays(prev => 
-                              prev.includes(index) 
-                                ? prev.filter(d => d !== index)
-                                : [...prev, index]
-                            );
-                          }
-                        }}
-                        className={`text-gray-400 ${
-                          copyToDays.includes(index) 
-                            ? 'text-indigo-600' 
-                            : 'hover:text-indigo-600'
-                        }`}
-                        title={copyFromDay === null ? "Select a source day first" : "Copy to this day"}
-                      >
-                        <ChevronDown size={16} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-                
-                {daySlots.length > 0 ? (
-                  <div className="space-y-3">
-                    {daySlots.map((slot) => (
-                      <div
-                        key={slot.id}
-                        className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Clock size={16} className="text-gray-500 dark:text-gray-400" />
-                          <span className="text-sm text-gray-700 dark:text-gray-300">
-                            {new Date(`2000-01-01T${slot.start_time}`).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                            {' - '}
-                            {new Date(`2000-01-01T${slot.end_time}`).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                            {slot.buffer_minutes && slot.buffer_minutes > 0 && (
-                              <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
-                                (+{slot.buffer_minutes}m buffer)
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                        {isEditing && (
-                          <button
-                            onClick={() => handleDelete(slot.id)}
-                            className="text-gray-400 hover:text-red-600"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">No availability set</p>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {copyFromDay !== null && copyToDays.length > 0 && (
-          <div className="fixed bottom-4 right-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-700 dark:text-gray-300">
-                Copy slots from {DAYS_OF_WEEK[copyFromDay]} to {copyToDays.length} day{copyToDays.length > 1 ? 's' : ''}?
-              </span>
-              <button
-                onClick={handleCopySlots}
-                className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
-              >
-                Copy
-              </button>
-              <button
-                onClick={() => {
-                  setCopyFromDay(null);
-                  setCopyToDays([]);
-                }}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Add Time Slot Modal */}
       {showModal && (

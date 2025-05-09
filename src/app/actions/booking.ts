@@ -27,26 +27,49 @@ export async function validateBookingSlot(
   error?: string;
 }> {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const supabase = createServerClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
           get(name: string) {
-            return cookieStore.get(name)?.value;
+            const cookie = cookieStore.get(name);
+            return cookie?.value;
           },
         },
       }
     );
 
-    // Validate date is not in the past
     const dateObj = DateTime.fromISO(selectedDate);
-    const today = DateTime.now().startOf('day');
-    if (dateObj < today) {
+    const now = DateTime.now();
+
+    // Check if the date is in the past
+    if (dateObj.startOf('day') < now.startOf('day')) {
       return {
         isValid: false,
-        error: 'Cannot book appointments in the past',
+        error: 'Cannot book a date in the past',
+      };
+    }
+
+    // Get embed settings to check minimum notice period
+    const { data: embedSettings, error: settingsError } = await supabase
+      .from('embeds')
+      .select('settings')
+      .eq('id', embedId)
+      .single();
+
+    if (settingsError) throw settingsError;
+
+    const settings = embedSettings?.settings as { min_booking_notice_hours?: number } | null;
+    const minNoticeHours = settings?.min_booking_notice_hours || 0;
+
+    // Check minimum notice period
+    const minNoticeTime = now.plus({ hours: minNoticeHours });
+    if (dateObj < minNoticeTime) {
+      return {
+        isValid: false,
+        error: `Bookings must be made at least ${minNoticeHours} hours in advance`,
       };
     }
 
@@ -77,6 +100,24 @@ export async function validateBookingSlot(
       return {
         isValid: false,
         error: 'Selected time slot is not available',
+      };
+    }
+
+    // Check for overlapping bookings using our new function
+    const { data: hasOverlap, error: overlapError } = await supabase
+      .rpc('check_booking_overlap', {
+        p_embed_id: embedId,
+        p_date: selectedDate,
+        p_start_time: selectedTime,
+        p_end_time: matchingSlot.end_time
+      });
+
+    if (overlapError) throw overlapError;
+
+    if (hasOverlap) {
+      return {
+        isValid: false,
+        error: 'This time slot is already booked',
       };
     }
 
@@ -114,14 +155,15 @@ export async function getAvailableTimeSlots(
   error?: string;
 }> {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const supabase = createServerClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
           get(name: string) {
-            return cookieStore.get(name)?.value;
+            const cookie = cookieStore.get(name);
+            return cookie?.value;
           },
         },
       }

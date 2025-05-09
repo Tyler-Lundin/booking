@@ -9,7 +9,10 @@ import CalendarHeader from '@/components/embed/CalendarHeader';
 import CalendarGrid from '@/components/embed/CalendarGrid';
 import TimeSlots from '@/components/embed/TimeSlots';
 
-type AvailabilitySlot = { day_of_week: number; start_time: string; end_time: string };
+
+interface EmbedSettings {
+  min_booking_notice_hours?: number;
+}
 
 interface EmbedIframeProps {
   id: string;
@@ -23,7 +26,7 @@ export default function EmbedIframe({ id }: EmbedIframeProps) {
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
   const [timeSlotsError, setTimeSlotsError] = useState<string>('');
   const [isLoadingTimeSlots, setIsLoadingTimeSlots] = useState(false);
-  const [isValidatingTime, setIsValidatingTime] = useState(false);
+  const [isValidatingTime] = useState(false);
 
   const firstDayOfMonth = currentMonth.startOf('month');
   const lastDayOfMonth = currentMonth.endOf('month');
@@ -52,27 +55,26 @@ export default function EmbedIframe({ id }: EmbedIframeProps) {
     } catch (err) {
       setTimeSlotsError('Failed to load time slots');
       setAvailableTimes([]);
+      console.error('Error fetching time slots:', err);
     } finally {
       setIsLoadingTimeSlots(false);
     }
   };
 
   const handleTimeSelect = async (time: string) => {
-    if (!selectedDate) return;
-    
-    setIsValidatingTime(true);
     try {
-      const { isValid, error } = await validateBookingSlot(id, selectedDate, time);
+      const { isValid, error } = await validateBookingSlot(id, selectedDate!, time);
       if (isValid) {
         setSelectedTime(time);
+        setTimeSlotsError('');
       } else {
-        console.error('Invalid time slot:', error);
+        setSelectedTime('');
         setTimeSlotsError(error || 'Invalid time slot');
       }
     } catch (err) {
-      setTimeSlotsError('Failed to validate time slot');
-    } finally {
-      setIsValidatingTime(false);
+      console.error('Error validating time slot:', err);
+      setSelectedTime('');
+      setTimeSlotsError('Error validating time slot');
     }
   };
 
@@ -126,6 +128,7 @@ export default function EmbedIframe({ id }: EmbedIframeProps) {
                 selectedDate={selectedDate}
                 availability={availability}
                 onDateSelect={handleDateSelect}
+                minNoticeHours={(embed.settings as EmbedSettings)?.min_booking_notice_hours}
               />
             </div>
 

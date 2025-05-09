@@ -8,6 +8,7 @@ import { DateTime } from 'luxon';
 import Cookies from 'js-cookie';
 import { BookingFormData } from '@/types/database.types';
 import { getFingerprint } from '@/lib/fingerprint';
+import { User } from '@supabase/supabase-js';
 
 const BOOKING_COOKIE_KEY = 'booking_completed';
 const BOOKING_COOKIE_EXPIRY = 1; // in days
@@ -35,10 +36,10 @@ export default function useBookingForm() {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [hasRecentBooking, setHasRecentBooking] = useState(false);
   const [createAccount, setCreateAccount] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    Cookies.get(BOOKING_COOKIE_KEY) && setHasRecentBooking(true);
+    if (Cookies.get(BOOKING_COOKIE_KEY)) setHasRecentBooking(true);
 
     supabase.auth.getUser().then(({ data }) => {
       if (data?.user) setUser(data.user);
@@ -49,7 +50,7 @@ export default function useBookingForm() {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev: BookingFormData) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -73,7 +74,7 @@ export default function useBookingForm() {
           .gte('created_at', DateTime.now().minus({ hours: 24 }).toISO());
 
         if (error) throw error;
-        if (data?.length) throw new Error('You’ve already made a booking recently.');
+        if (data?.length) throw new Error("You've already made a booking recently.");
       }
 
       const { data: availability, error: availabilityError } = await supabase

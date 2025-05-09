@@ -18,7 +18,7 @@ type Embed = Database['public']['Tables']['embeds']['Row'] & {
     archive_after_days?: number;
     allowed_booking_types?: string[];
     secure_booking?: boolean;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 };
 
@@ -55,7 +55,6 @@ const ENCRYPTED_FIELDS = [
   'settings.supabase_service_role_key'
 ] as const;
 
-type EncryptedField = typeof ENCRYPTED_FIELDS[number];
 
 export function useEmbedDashboard({ embedId }: UseEmbedDashboardProps): UseEmbedDashboardReturn {
   const [embed, setEmbed] = useState<Embed | null>(null);
@@ -144,9 +143,9 @@ export function useEmbedDashboard({ embedId }: UseEmbedDashboardProps): UseEmbed
       setFormData(prev => ({
         ...prev,
         settings: {
-          ...(prev.settings as Record<string, any> || {}),
+          ...(typeof prev.settings === 'object' && prev.settings ? prev.settings : {}),
           [settingName]: value
-        }
+        } as Embed['settings']
       }));
     } else {
       setFormData(prev => ({
@@ -174,7 +173,7 @@ export function useEmbedDashboard({ embedId }: UseEmbedDashboardProps): UseEmbed
       setError(null);
 
       // Encrypt sensitive fields before saving
-      const encryptedData = await encryptFields(formData, ENCRYPTED_FIELDS as unknown as Array<keyof Embed>);
+      const encryptedData = await encryptFields(formData, ENCRYPTED_FIELDS as unknown as Array<keyof typeof formData>);
 
       const { error: updateError } = await supabase
         .from('embeds')

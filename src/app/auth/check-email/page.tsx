@@ -72,7 +72,7 @@ export default function CheckEmailPage() {
             Check your email
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            We've sent a confirmation link to {email || 'your email address'}
+            We&apos;ve sent a confirmation link to {email || 'your email address'}
           </p>
           <p className="mt-2 text-center text-sm text-gray-600">
             Please click the link in the email to confirm your account and continue setting up your project.

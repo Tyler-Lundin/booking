@@ -32,8 +32,8 @@ export function useCreateEmbed() {
       if (error) throw error;
       setNewEmbed(data);
       router.push(`/embed/${data.id}`);
-    } catch (err: any) {
-      setError(err.message || 'Failed to create embed');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create embed');
     } finally {
       setIsLoading(false);
     }
@@ -46,8 +46,8 @@ export function useCreateEmbed() {
       const { data, error } = await supabase.from('embeds').update(embed).eq('id', embed.id).select().single();
       if (error) throw error;
       setNewEmbed(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to update embed');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update embed');
     } finally {
       setIsLoading(false);
     }
@@ -61,8 +61,8 @@ export function useCreateEmbed() {
       if (error) throw error;
       setNewEmbed(null);
       router.push('/embeds');
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete embed');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete embed');
     } finally {
       setIsLoading(false);
     }

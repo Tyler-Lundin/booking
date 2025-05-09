@@ -16,7 +16,6 @@ export default function BaseBookingForm({
   selectedDate, 
   selectedTime, 
   embedId,
-  industry 
 }: BaseBookingFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

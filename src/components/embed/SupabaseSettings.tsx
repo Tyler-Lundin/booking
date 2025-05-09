@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Embed } from "@/types/custom.types";
+import { FormData } from "./CreateEmbed";
 interface SupabaseSettingsProps {
-  embed: Embed;
+  embed: Partial<Embed>;
   isEditing: boolean;
-  formData: Partial<Embed>;
+  formData: FormData;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
 }
 
@@ -23,7 +24,7 @@ export default function SupabaseSettings({
         className="w-full px-6 py-4 flex justify-between items-center text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors rounded-lg"
       >
         <div className="flex items-center">
-          <svg className="w-5 h-5 text-indigo-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5 text-emerald-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Supabase Connection</h2>
@@ -54,7 +55,7 @@ export default function SupabaseSettings({
                     value={formData.supabase_project_id || ''}
                     onChange={onInputChange}
                     required
-                    className="mt-1 block w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="mt-1 block w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     placeholder="Enter your Supabase project ID"
                   />
                 </div>
@@ -69,7 +70,7 @@ export default function SupabaseSettings({
                     value={formData.supabase_url || ''}
                     onChange={onInputChange}
                     required
-                    className="mt-1 block w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="mt-1 block w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     placeholder="Enter your Supabase URL"
                   />
                 </div>
@@ -84,7 +85,7 @@ export default function SupabaseSettings({
                     value={formData.supabase_api_key || ''}
                     onChange={onInputChange}
                     required
-                    className="mt-1 block w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="mt-1 block w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     placeholder="Enter your API key"
                   />
                 </div>
@@ -98,7 +99,7 @@ export default function SupabaseSettings({
                     name="supabase_service_role_key"
                     value={formData.supabase_service_role_key || ''}
                     onChange={onInputChange}
-                    className="mt-1 block w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="mt-1 block w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     placeholder="Enter your service role key"
                   />
                 </div>
@@ -112,7 +113,7 @@ export default function SupabaseSettings({
                     name="supabase_database_url"
                     value={formData.supabase_database_url || ''}
                     onChange={onInputChange}
-                    className="mt-1 block w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="mt-1 block w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     placeholder="Enter your database URL"
                   />
                 </div>
@@ -126,7 +127,7 @@ export default function SupabaseSettings({
                     name="supabase_database_name"
                     value={formData.supabase_database_name || ''}
                     onChange={onInputChange}
-                    className="mt-1 block w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="mt-1 block w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     placeholder="Enter your database name"
                   />
                 </div>

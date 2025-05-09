@@ -1,26 +1,8 @@
-import { Database } from "@/types/database.types";
 import { useState } from "react";
-
-type Embed = Database['public']['Tables']['embeds']['Row'] & {
-  settings: {
-    supabase_url?: string;
-    supabase_anon_key?: string;
-    supabase_service_role_key?: string;
-    company_name?: string;
-    industry?: 'barbershop' | 'tattoo' | 'optometry' | 'dental' | 'custom';
-    timezone?: string;
-    theme?: 'light' | 'dark' | 'system';
-    min_booking_notice_hours?: number;
-    max_attendees?: number;
-    archive_after_days?: number;
-    allowed_booking_types?: string[];
-    secure_booking?: boolean;
-    [key: string]: any;
-  };
-};
+import { FormData } from './CreateEmbed';
 
 interface BasicInformationProps {
-  formData: Partial<Embed>;
+  formData: FormData;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
 }
 

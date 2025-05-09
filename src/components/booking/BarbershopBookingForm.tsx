@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { Database } from '@/types/database.types';
-import BaseBookingForm from './BaseBookingForm';
 
 interface BarbershopBookingFormProps {
   selectedDate: string;
@@ -23,8 +22,7 @@ export default function BarbershopBookingForm({
     service: '',
     notes: ''
   });
-  const [isLoadingServices, setIsLoadingServices] = useState(false);
-  const [services, setServices] = useState<Database['public']['Tables']['booking_types']['Row'][]>([]);
+  const [services] = useState<Database['public']['Tables']['booking_types']['Row'][]>([]);
   const supabase = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!

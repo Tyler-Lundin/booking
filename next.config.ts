@@ -12,6 +12,11 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true, // Temporarily ignore build errors
   },
+  turbopack: {
+    resolveAlias: {
+      '@': './src',
+    },
+  },
 };
 
 export default nextConfig;

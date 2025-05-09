@@ -3,7 +3,17 @@
 import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { Database } from '@/types/database.types';
-import BaseBookingForm from './BaseBookingForm';
+import { DateTime } from 'luxon';
+import { getFingerprint } from '@/lib/fingerprint';
+import Cookies from 'js-cookie';
+import { StepIndicator } from './booking-form/StepIndicator';
+import { BasicInfoForm } from './booking-form/BasicInfoForm';
+import { ProjectDetailsForm } from './booking-form/ProjectDetailsForm';
+import { ProjectDescriptionForm } from './booking-form/ProjectDescriptionForm';
+import { NavigationButtons } from './booking-form/NavigationButtons';
+import { ConfirmationModal } from './booking-form/ConfirmationModal';
+import { SuccessView } from './booking-form/SuccessView';
+import { RecentBookingView } from './booking-form/RecentBookingView';
 
 interface CustomField {
   id: string;
@@ -32,8 +42,13 @@ interface FormData {
   technicalRequirements: string;
   preferredTechStack: string;
   notes: string;
-  [key: string]: string; // Allow for custom fields
+  [key: string]: string;
 }
+
+const BOOKING_COOKIE_KEY = 'booking_completed';
+const BOOKING_COOKIE_EXPIRY = 1;
+
+type Step = 'basic' | 'project' | 'description' | 'review';
 
 export default function CustomBookingForm({ 
   selectedDate, 
@@ -56,15 +71,28 @@ export default function CustomBookingForm({
   const [isLoadingServices, setIsLoadingServices] = useState(false);
   const [services, setServices] = useState<Database['public']['Tables']['booking_types']['Row'][]>([]);
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [hasRecentBooking, setHasRecentBooking] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [currentStep, setCurrentStep] = useState<Step>('basic');
   const supabase = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
   useEffect(() => {
+    if (Cookies.get(BOOKING_COOKIE_KEY)) {
+      setHasRecentBooking(true);
+    }
+  }, []);
+
+  useEffect(() => {
     const fetchServices = async () => {
       try {
         setIsLoadingServices(true);
+        console.log('Fetching services for embed:', embedId);
         const { data, error } = await supabase
           .from('booking_types')
           .select('*')
@@ -72,16 +100,23 @@ export default function CustomBookingForm({
           .eq('is_active', true)
           .order('created_at', { ascending: true });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error fetching services:', error);
+          throw error;
+        }
+        
+        console.log('Fetched services:', data);
         setServices(data || []);
       } catch (err) {
-        console.error('Error fetching services:', err);
+        console.error('Error in fetchServices:', err);
       } finally {
         setIsLoadingServices(false);
       }
     };
 
-    fetchServices();
+    if (embedId) {
+      fetchServices();
+    }
   }, [embedId, supabase]);
 
   useEffect(() => {
@@ -113,19 +148,43 @@ export default function CustomBookingForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setShowConfirmation(true);
+  };
+
+  const handleConfirmBooking = async () => {
+    setIsSubmitting(true);
+    setError(null);
+    setShowConfirmation(false);
+
     try {
-      const { error } = await supabase.from('bookings').insert({
+      const fingerprint = await getFingerprint();
+
+      if (fingerprint) {
+        const { data, error } = await supabase
+          .from('bookings')
+          .select('*')
+          .eq('fingerprint', fingerprint)
+          .gte('created_at', DateTime.now().minus({ hours: 24 }).toISO());
+
+        if (error) throw error;
+        if (data?.length) throw new Error("You've already made a booking recently.");
+      }
+
+      const startTime = DateTime.fromFormat(selectedTime, 'HH:mm:ss');
+      const endTime = startTime.plus({ minutes: 30 }).toFormat('HH:mm:ss');
+
+      const { data: booking, error } = await supabase.from('bookings').insert({
         embed_id: embedId,
         date: selectedDate,
         start_time: selectedTime,
-        end_time: selectedTime,
+        end_time: endTime,
         name: formData.name,
         email: formData.email,
         phone_number: formData.phone,
         notes: formData.notes,
-        appointment_type_id: formData.service,
+        booking_type_id: formData.service,
         status: 'pending',
+        fingerprint,
         metadata: {
           projectType: formData.projectType,
           budget: formData.budget,
@@ -138,271 +197,85 @@ export default function CustomBookingForm({
             [field.id]: formData[field.id] || ''
           }), {})
         }
-      });
+      }).select('id').single();
 
       if (error) throw error;
+
+      Cookies.set(BOOKING_COOKIE_KEY, booking.id, { expires: BOOKING_COOKIE_EXPIRY });
+      setHasRecentBooking(true);
+      setSuccess(true);
+
+      setTimeout(() => {
+        window.location.href = `/bookings/${booking.id}`;
+      }, 2000);
     } catch (err) {
       console.error('Error creating booking:', err);
-      throw err;
+      setError(err instanceof Error ? err.message : 'Failed to create booking.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
+  if (hasRecentBooking) {
+    return <RecentBookingView selectedDate={selectedDate} selectedTime={selectedTime} />;
+  }
+
+  if (success) {
+    return <SuccessView selectedDate={selectedDate} selectedTime={selectedTime} />;
+  }
+
   return (
-    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
-      <h2 className="text-2xl font-bold mb-6 text-center">Schedule a Consultation</h2>
+    <div className="max-w-md mx-auto p-6 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 dark:border-gray-800/50 overflow-hidden">
+      <h2 className="text-2xl font-bold mb-2 text-center bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">Schedule a Consultation</h2>
+      <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-6">Fields marked with * are required</p>
       
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-            Name
-          </label>
-          <input
-            type="text"
-            id="name"
-            name="name"
-            required
-            value={formData.name}
-            onChange={handleInputChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+      <StepIndicator currentStep={currentStep} />
+      
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {currentStep === 'basic' && (
+          <BasicInfoForm 
+            formData={formData} 
+            handleInputChange={handleInputChange} 
+            services={services}
+            isLoadingServices={isLoadingServices}
           />
-        </div>
-
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-            Email
-          </label>
-          <input
-            type="email"
-            id="email"
-            name="email"
-            required
-            value={formData.email}
-            onChange={handleInputChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+        )}
+        {(currentStep === 'project') && (
+          <ProjectDetailsForm 
+            formData={formData} 
+            handleInputChange={handleInputChange} 
           />
-        </div>
-
-        <div>
-          <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-            Phone Number
-          </label>
-          <input
-            type="tel"
-            id="phone"
-            name="phone"
-            required
-            value={formData.phone}
-            onChange={handleInputChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+        )}
+        {currentStep === 'description' && (
+          <ProjectDescriptionForm 
+            formData={formData} 
+            handleInputChange={handleInputChange} 
           />
-        </div>
+        )}
 
-        <div>
-          <label htmlFor="service" className="block text-sm font-medium text-gray-700">
-            Service
-          </label>
-          <select
-            id="service"
-            name="service"
-            required
-            value={formData.service}
-            onChange={handleInputChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-          >
-            <option value="">Select a service</option>
-            {services.map(service => (
-              <option key={service.id} value={service.id}>
-                {service.name} - ${service.price}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="projectType" className="block text-sm font-medium text-gray-700">
-            Project Type
-          </label>
-          <select
-            id="projectType"
-            name="projectType"
-            required
-            value={formData.projectType}
-            onChange={handleInputChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-          >
-            <option value="">Select project type</option>
-            <option value="website">Website</option>
-            <option value="web-app">Web Application</option>
-            <option value="mobile-app">Mobile Application</option>
-            <option value="ecommerce">E-commerce</option>
-            <option value="api">API Development</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="budget" className="block text-sm font-medium text-gray-700">
-            Budget Range
-          </label>
-          <select
-            id="budget"
-            name="budget"
-            required
-            value={formData.budget}
-            onChange={handleInputChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-          >
-            <option value="">Select budget range</option>
-            <option value="under-1k">Under $1,000</option>
-            <option value="1k-5k">$1,000 - $5,000</option>
-            <option value="5k-10k">$5,000 - $10,000</option>
-            <option value="10k-25k">$10,000 - $25,000</option>
-            <option value="25k-plus">$25,000+</option>
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="timeline" className="block text-sm font-medium text-gray-700">
-            Project Timeline
-          </label>
-          <select
-            id="timeline"
-            name="timeline"
-            required
-            value={formData.timeline}
-            onChange={handleInputChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-          >
-            <option value="">Select timeline</option>
-            <option value="1-2-weeks">1-2 weeks</option>
-            <option value="2-4-weeks">2-4 weeks</option>
-            <option value="1-2-months">1-2 months</option>
-            <option value="2-4-months">2-4 months</option>
-            <option value="4-plus-months">4+ months</option>
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="projectDescription" className="block text-sm font-medium text-gray-700">
-            Project Description
-          </label>
-          <textarea
-            id="projectDescription"
-            name="projectDescription"
-            required
-            rows={4}
-            value={formData.projectDescription}
-            onChange={handleInputChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-            placeholder="Please describe your project in detail"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="technicalRequirements" className="block text-sm font-medium text-gray-700">
-            Technical Requirements
-          </label>
-          <textarea
-            id="technicalRequirements"
-            name="technicalRequirements"
-            rows={3}
-            value={formData.technicalRequirements}
-            onChange={handleInputChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-            placeholder="Any specific technical requirements or constraints?"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="preferredTechStack" className="block text-sm font-medium text-gray-700">
-            Preferred Tech Stack
-          </label>
-          <input
-            type="text"
-            id="preferredTechStack"
-            name="preferredTechStack"
-            value={formData.preferredTechStack}
-            onChange={handleInputChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-            placeholder="Any preferred technologies or frameworks?"
-          />
-        </div>
-
-        {customFields.map(field => (
-          <div key={field.id}>
-            <label htmlFor={field.id} className="block text-sm font-medium text-gray-700">
-              {field.label}
-              {field.required && <span className="text-red-500 ml-1">*</span>}
-            </label>
-            {field.type === 'textarea' ? (
-              <textarea
-                id={field.id}
-                name={field.id}
-                required={field.required}
-                rows={3}
-                value={formData[field.id] || ''}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                placeholder={field.placeholder}
-              />
-            ) : field.type === 'select' ? (
-              <select
-                id={field.id}
-                name={field.id}
-                required={field.required}
-                value={formData[field.id] || ''}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              >
-                <option value="">Select an option</option>
-                {field.options?.map((option: string) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                type={field.type}
-                id={field.id}
-                name={field.id}
-                required={field.required}
-                value={formData[field.id] || ''}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                placeholder={field.placeholder}
-              />
-            )}
+        {error && (
+          <div className="text-red-500 dark:text-red-400 text-sm bg-red-50/50 dark:bg-red-900/20 p-3 rounded-xl border border-red-200/50 dark:border-red-800/50">
+            {error}
           </div>
-        ))}
+        )}
 
-        <div>
-          <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
-            Additional Notes
-          </label>
-          <textarea
-            id="notes"
-            name="notes"
-            rows={3}
-            value={formData.notes}
-            onChange={handleInputChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-            placeholder="Any other information we should know?"
-          />
-        </div>
-
-        <div className="text-center text-sm text-gray-500">
-          <p>Date: {new Date(selectedDate).toLocaleDateString()}</p>
-          <p>Time: {selectedTime}</p>
-        </div>
-
-        <button
-          type="submit"
-          className="w-full rounded-md bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-        >
-          Book Consultation
-        </button>
+        <NavigationButtons 
+          currentStep={currentStep}
+          setCurrentStep={setCurrentStep}
+          isSubmitting={isSubmitting}
+        />
       </form>
+
+      {showConfirmation && (
+        <ConfirmationModal
+          selectedDate={selectedDate}
+          selectedTime={selectedTime}
+          formData={formData}
+          isSubmitting={isSubmitting}
+          onClose={() => setShowConfirmation(false)}
+          onConfirm={handleConfirmBooking}
+        />
+      )}
     </div>
   );
 } 

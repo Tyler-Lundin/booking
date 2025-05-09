@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Embed } from "@/types/custom.types";
 import { industries, getIndustryById } from "@/config/industries";
-
+import { FormData } from "./CreateEmbed";
 interface BookingSettingsProps {
-  embed: Embed;
+  embed: Partial<Embed>;
   isEditing: boolean;
-  formData: Partial<Embed>;
+  formData: FormData;
   onInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
   onCheckboxChange: (name: string, value: boolean) => void;
 }

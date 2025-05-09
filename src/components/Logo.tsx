@@ -1,11 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
 
-interface LogoProps {
-  className?: string;
-  showText?: boolean;
-}
-
 export function LogoFull() {
   return (
     <Link href="/" className={`flex items-center relative space-x-1`}>
@@ -58,9 +53,9 @@ export function LogoShort() {
 }
 
 
-export function FoxHead({ size = 'w-8 h-8' }: { size?: string }) {
+export function FoxHead({ size = 'w-8 h-8', className }: { size?: string; className?: string }) {
   return (
-    <div className={`relative ${size}`}>
+    <div className={`relative ${size} ${className || ''}`}>
       <Image src="/assets/fox-head.png" sizes={"100%"} alt="Fox Head Logo" fill className="object-contain" priority />
     </div>
   );

@@ -1,12 +1,10 @@
 // app/embed/[id]/iframe/layout.tsx
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import { createClient } from "@/lib/supabase/server";
 import "@/app/globals.css";
 import { redirect } from "next/navigation";
 import { ReactNode } from "react";
+import { createClient } from "@/lib/supabase/server";
 
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Booking",

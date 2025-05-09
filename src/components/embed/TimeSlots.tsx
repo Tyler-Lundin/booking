@@ -1,4 +1,5 @@
 import { DateTime } from 'luxon';
+import { Clock } from 'lucide-react';
 
 interface TimeSlotsProps {
   selectedDate: string;
@@ -21,62 +22,70 @@ export default function TimeSlots({
 }: TimeSlotsProps) {
   if (!selectedDate) {
     return (
-      <div className="text-center py-4 text-gray-500 dark:text-gray-400">
-        Please select a date first
+      <div className="text-center py-8 px-6 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 dark:border-gray-800/50">
+        <Clock className="w-8 h-8 mx-auto mb-3 text-gray-400 dark:text-gray-500" />
+        <p className="text-gray-500 dark:text-gray-400">Please select a date to see available times</p>
       </div>
     );
   }
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500"></div>
-        <span className="ml-2 text-gray-500 dark:text-gray-400">Loading time slots...</span>
+      <div className="text-center py-8 px-6 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 dark:border-gray-800/50">
+        <div className="animate-pulse space-y-3">
+          <div className="h-4 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-800 dark:to-gray-700 rounded-xl w-1/3 mx-auto"></div>
+          <div className="h-4 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-800 dark:to-gray-700 rounded-xl w-1/4 mx-auto"></div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="text-center py-4 text-red-500 dark:text-red-400">
-        {error}
+      <div className="text-center py-8 px-6 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm rounded-2xl shadow-lg border border-red-200/50 dark:border-red-800/50">
+        <p className="text-red-600 dark:text-red-400 font-medium">{error}</p>
       </div>
     );
   }
 
-  if (availableTimes.length === 0) {
-    return (
-      <div className="text-center py-4 text-gray-500 dark:text-gray-400">
-        No available time slots for this date
-      </div>
-    );
-  }
+  const now = DateTime.now();
+  const selectedDateTime = DateTime.fromISO(selectedDate);
+  const isToday = selectedDateTime.hasSame(now, 'day');
 
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className="grid grid-cols-3 gap-3">
       {availableTimes.map((time) => {
         const isSelected = time === selectedTime;
         const isDisabled = isValidating && !isSelected;
+        const timeObj = DateTime.fromFormat(time, 'HH:mm:ss');
+        const isPastTime = isToday && timeObj < now;
         
         return (
           <button
             key={time}
-            onClick={() => onTimeSelect(time)}
-            disabled={isDisabled}
-            className={`p-3 rounded-lg text-center ${
-              isSelected
-                ? 'bg-indigo-600 text-white'
-                : isDisabled
-                ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                : 'bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-600'
-            }`}
+            onClick={() => !isPastTime && onTimeSelect(time)}
+            disabled={isDisabled || isPastTime}
+            className={`
+              relative p-3 rounded-xl text-center transition-all duration-300 transform hover:scale-105
+              ${isSelected
+                ? 'bg-gradient-to-r from-blue-600 to-emerald-500 dark:from-orange-500 dark:to-pink-500 text-white shadow-lg'
+                : isDisabled || isPastTime
+                ? 'bg-gray-50/50 dark:bg-gray-800/50 text-gray-400 dark:text-gray-500 cursor-not-allowed border border-gray-200/50 dark:border-gray-700/50'
+                : 'bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm text-gray-700 dark:text-gray-300 border border-gray-200/50 dark:border-gray-700/50 hover:border-blue-500/20 dark:hover:border-orange-500/20'
+              }
+            `}
           >
-            {isValidating && isSelected ? (
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              </div>
-            ) : (
-              DateTime.fromFormat(time, 'HH:mm:ss').toFormat('h:mm a')
+            <span className="relative z-10">
+              {isValidating && isSelected ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                </div>
+              ) : (
+                DateTime.fromFormat(time, 'HH:mm:ss').toFormat('h:mm a')
+              )}
+            </span>
+            {isSelected && (
+              <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-blue-600 dark:from-pink-500 dark:to-orange-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl" />
             )}
           </button>
         );

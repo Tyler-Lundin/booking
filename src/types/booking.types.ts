@@ -51,8 +51,8 @@ export type EmbedSettings = {
   archive_after_days?: number;
   allowed_booking_types?: string[];
   secure_booking?: boolean;
-  custom_fields?: Record<string, any>;
-  [key: string]: any;
+  custom_fields?: Record<string, unknown>;
+  [key: string]: unknown;
 };
 
 export type AppointmentType = {

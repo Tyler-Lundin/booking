@@ -14,9 +14,20 @@ export default function AuthPage() {
     setFullName,
     isSignUp,
     setIsSignUp,
+    loading,
     error,
     handleSubmit,
   } = useAuthPage()
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center relative">
+        <div className="max-w-md w-full space-y-8 p-10 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-100/50 relative dark:bg-gray-900/80 dark:border-gray-800/50">
+          <FoxHead size="w-20 h-20" />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>

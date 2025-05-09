@@ -2,14 +2,23 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LogoFull, LogoShort, FoxHead } from './Logo';
+import { LogoFull } from './Logo';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import DarkModeToggle from './DarkModeToggle';
+import { useEffect, useState } from 'react';
+import { User } from '@supabase/supabase-js';
 
-export default async function Navigation() {
+export default function Navigation() {
   const pathname = usePathname();
+  const [user, setUser] = useState<User | null>(null);
   const supabase = createBrowserSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    getUser();
+  }, [supabase]);
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard' },

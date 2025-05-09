@@ -48,27 +48,51 @@ export async function decrypt(encryptedText: string): Promise<string> {
   }
 }
 
-export async function encryptFields<T extends Record<string, any>>(
+export async function encryptFields<T extends Record<string, unknown>>(
   obj: T,
   fields: Array<keyof T>
 ): Promise<T> {
   const encrypted = { ...obj };
   for (const field of fields) {
-    if (obj[field] !== undefined && obj[field] !== null) {
-      encrypted[field] = await encrypt(String(obj[field])) as T[keyof T];
+    const value = obj[field];
+    if (value !== undefined && value !== null) {
+      if (typeof value === 'object') {
+        // Handle nested objects
+        const nestedObj = value as Record<string, unknown>;
+        for (const [key, val] of Object.entries(nestedObj)) {
+          if (val !== undefined && val !== null) {
+            nestedObj[key] = await encrypt(String(val));
+          }
+        }
+        encrypted[field] = nestedObj as T[keyof T];
+      } else {
+        encrypted[field] = await encrypt(String(value)) as T[keyof T];
+      }
     }
   }
   return encrypted;
 }
 
-export async function decryptFields<T extends Record<string, any>>(
+export async function decryptFields<T extends Record<string, unknown>>(
   obj: T,
   fields: Array<keyof T>
 ): Promise<T> {
   const decrypted = { ...obj };
   for (const field of fields) {
-    if (obj[field] !== undefined && obj[field] !== null) {
-      decrypted[field] = await decrypt(String(obj[field])) as T[keyof T];
+    const value = obj[field];
+    if (value !== undefined && value !== null) {
+      if (typeof value === 'object') {
+        // Handle nested objects
+        const nestedObj = value as Record<string, unknown>;
+        for (const [key, val] of Object.entries(nestedObj)) {
+          if (val !== undefined && val !== null) {
+            nestedObj[key] = await decrypt(String(val));
+          }
+        }
+        decrypted[field] = nestedObj as T[keyof T];
+      } else {
+        decrypted[field] = await decrypt(String(value)) as T[keyof T];
+      }
     }
   }
   return decrypted;

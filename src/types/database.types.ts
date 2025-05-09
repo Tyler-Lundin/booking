@@ -320,8 +320,8 @@ export type Database = {
       }
       bookings: {
         Row: {
-          appointment_type_id: string | null
           attendee_count: number | null
+          booking_type_id: string | null
           created_at: string
           date: string
           email: string | null
@@ -339,8 +339,8 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
-          appointment_type_id?: string | null
           attendee_count?: number | null
+          booking_type_id?: string | null
           created_at?: string
           date: string
           email?: string | null
@@ -358,8 +358,8 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
-          appointment_type_id?: string | null
           attendee_count?: number | null
+          booking_type_id?: string | null
           created_at?: string
           date?: string
           email?: string | null
@@ -378,10 +378,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "bookings_appointment_type_id_fkey"
-            columns: ["appointment_type_id"]
+            foreignKeyName: "bookings_booking_type_id_fkey"
+            columns: ["booking_type_id"]
             isOneToOne: false
-            referencedRelation: "appointment_types"
+            referencedRelation: "booking_types"
             referencedColumns: ["id"]
           },
           {
@@ -1094,6 +1094,15 @@ export type Database = {
       }
     }
     Functions: {
+      check_booking_overlap: {
+        Args: {
+          p_embed_id: string
+          p_date: string
+          p_start_time: string
+          p_end_time: string
+        }
+        Returns: boolean
+      }
       exec_sql: {
         Args: { sql: string }
         Returns: undefined
@@ -1101,6 +1110,14 @@ export type Database = {
       generate_slug: {
         Args: { title: string }
         Returns: string
+      }
+      get_available_time_slots: {
+        Args: { p_embed_id: string; p_date: string }
+        Returns: {
+          start_time: string
+          end_time: string
+          is_available: boolean
+        }[]
       }
       is_admin: {
         Args: Record<PropertyKey, never>

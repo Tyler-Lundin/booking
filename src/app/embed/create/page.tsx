@@ -13,12 +13,6 @@ export default async function CreateEmbedPage() {
         redirect("/auth")
     }
 
-    const { data: embeds, error } = await supabase.from('embeds').select('*').eq('owner_id', user.id)
-
-    if (error) {
-        console.error(error)
-    }
-
     return (
         <div>
             <CreateEmbed />

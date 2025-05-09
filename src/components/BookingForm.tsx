@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { DateTime } from 'luxon';
 import Cookies from 'js-cookie';
 import useBookingForm from '@/hooks/useBookingForm';
@@ -59,14 +59,7 @@ export default function BookingForm({ selectedDate, selectedTime, embedId }: Boo
     setEmbedId,
   } = useBookingForm();
 
-  useEffect(() => {
-    setSelectedDate(selectedDate);
-    setSelectedTime(selectedTime);
-    setEmbedId(embedId);
-    fetchAvailability();
-  }, [selectedDate, selectedTime, embedId]);
-
-  const fetchAvailability = async () => {
+  const fetchAvailability = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('availability')
@@ -112,7 +105,14 @@ export default function BookingForm({ selectedDate, selectedTime, embedId }: Boo
     } finally {
       setLoading(false);
     }
-  };
+  }, [embedId, selectedDate, selectedTime, supabase]);
+
+  useEffect(() => {
+    setSelectedDate(selectedDate);
+    setSelectedTime(selectedTime);
+    setEmbedId(embedId);
+    fetchAvailability();
+  }, [selectedDate, selectedTime, embedId, fetchAvailability, setEmbedId, setSelectedDate, setSelectedTime]);
 
   const formattedDate = DateTime.fromISO(selectedDate).toLocaleString(DateTime.DATE_MED);
   const formattedTime = DateTime.fromFormat(selectedTime, 'HH:mm:ss').toFormat('h:mm a');

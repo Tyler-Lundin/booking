@@ -1,18 +1,18 @@
 "use client";
 
-import { Database } from "@/types/database.types";
 import { useSupabaseAuth } from "@/hooks/useSupbaseAuth";
 import { useCreateEmbed } from "./useCreateEmbed";
 import { v4 as uuidv4 } from 'uuid';
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import BasicInformation from "./BasicInformation";
 import BookingSettings from "./BookingSettings";
 import SupabaseSettings from "./SupabaseSettings";
-import { Embed, EmbedSettings, IndustryType } from "@/types/booking.types";
+import { Embed, EmbedSettings } from "@/types/booking.types";
 
-interface FormData {
+
+export interface FormData {
   name: string;
-  settings: Record<string, any>;
+  settings: Partial<EmbedSettings>;
   supabase_project_id: string;
   supabase_url: string;
   supabase_api_key: string;
@@ -21,14 +21,14 @@ interface FormData {
   supabase_database_name: string;
 }
 
-const adjectives = ['Swift', 'Bright', 'Quick', 'Smart', 'Clear', 'Fresh', 'Sharp', 'Bold', 'Calm', 'Cool'];
-const nouns = ['Fox', 'Wolf', 'Eagle', 'Hawk', 'Lion', 'Bear', 'Deer', 'Owl', 'Hare', 'Lynx'];
+// const adjectives = ['Swift', 'Bright', 'Quick', 'Smart', 'Clear', 'Fresh', 'Sharp', 'Bold', 'Calm', 'Cool', 'Mediocre', 'Minimal', 'Modern', 'Simple', 'Stylish', 'Trendy', 'Unique', 'Vintage', 'Whimsical', 'Zen'];
+// const nouns = ['Fox', 'Wolf', 'Eagle', 'Hawk', 'Lion', 'Bear', 'Deer', 'Owl', 'Hare', 'Lynx', 'Panda'];
 
-function generateRandomName() {
-  const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
-  const noun = nouns[Math.floor(Math.random() * nouns.length)];
-  return `${adjective} ${noun} Booking`;
-}
+// function generateRandomName() {
+//   const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+//   const noun = nouns[Math.floor(Math.random() * nouns.length)];
+//   return `${adjective} ${noun} Booking`;
+// }
 
 export default function CreateEmbed() {
   const { user, loading: authLoading, error: authError } = useSupabaseAuth();
@@ -110,10 +110,10 @@ export default function CreateEmbed() {
       return;
     }
 
-    const embedData: Embed = {
+    const embedData = {
       id: uuidv4(),
       name: formData.name,
-      settings: formData.settings as EmbedSettings,
+      settings: formData.settings || {} as EmbedSettings,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       owner_id: user.id,
@@ -127,7 +127,8 @@ export default function CreateEmbed() {
       industry: formData.settings.industry || 'custom',
       theme: formData.settings.theme || 'light',
       timezone: 'UTC'
-    };
+    } satisfies Partial<Embed>;
+    
     await createEmbed(embedData);
   };
 
@@ -151,7 +152,7 @@ export default function CreateEmbed() {
           />
 
           <BookingSettings
-            embed={formData as any}
+            embed={formData}
             isEditing={true}
             formData={formData}
             onInputChange={handleInputChange}
@@ -160,7 +161,7 @@ export default function CreateEmbed() {
 
 
 <SupabaseSettings
-            embed={formData as any}
+            embed={formData}
             isEditing={true}
             formData={formData}
             onInputChange={handleInputChange}

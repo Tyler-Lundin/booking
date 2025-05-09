@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react';
 import { Session, AuthChangeEvent, User as SupabaseAuthUser } from '@supabase/supabase-js';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import { User } from '@/types/database.types';
+import { Database } from '@/types/database.types';
+
+type User = Database['public']['Tables']['users']['Row'];
 
 export function useSupabaseAuth() {
   const [auth, setAuth] = useState<SupabaseAuthUser | null>(null); // raw auth user
@@ -40,7 +42,7 @@ export function useSupabaseAuth() {
     const fetchUserProfile = async () => {
       if (!auth) {
         setUser(null);
-        setError
+        setError(null);
         return;
       }
 
