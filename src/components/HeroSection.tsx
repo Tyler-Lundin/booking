@@ -22,7 +22,7 @@ export default function HeroSection() {
 
           {/* Title with gradient text */}
           <h1 className="mt-8 text-4xl font-bold tracking-tight sm:text-6xl bg-clip-text text-transparent bg-gradient-to-r from-orange-500 to-orange-600 dark:from-orange-400 dark:to-orange-600 animate-gradient">
-            SLOTFOX <br/>
+            FOXLOT <br/>
             <span className="text-gray-900 dark:text-white">BOOKING</span>
           </h1>
 
